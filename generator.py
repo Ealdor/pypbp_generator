@@ -214,7 +214,6 @@ class Checker:
         """
         if self.finish:
             return
-
         for adj in father.adjacents:
             if self.number == 2:  # para el numero 2.
                 dist = self.t.get_distance(self.t.get_tree_root(), rama)
@@ -232,29 +231,19 @@ class Checker:
                         self.three_check(adj, rama.add_child(name=adj), root)
         for leave in rama.get_leaves():  # hacer la comprobacion aqui
             if leave.is_leaf() and leave.name.number == self.number and leave.name is not root.pair and abs(int(round(math.sqrt((leave.name.pair.coordinate[0] - root.pair.coordinate[0])**2 + (leave.name.pair.coordinate[1] - root.pair.coordinate[1])**2)))) <= root.number:  # a)
-                print('generando arbol auxiliar')
+                # print('generando arbol auxiliar')
                 self.three_check_aux(leave.name.pair, self.taux.add_child(name=leave.name.pair), root)
-                # print(c.t.get_ascii(show_internal=True))
-                for leavea in self.taux.get_leaves():
-                    if leavea.name.number == self.number and leavea.name is root.pair:
-                        print('error A encontrado')
-                        for w in root.way:
-                            w.number = 1
-                            w.ini = False
-                            w.way = []
-                            self.puzzle.candidate.append(w)
-                        self.finish = True
-                        break
                 self.taux = Tree(';', format=1)
             if leave.name.number == self.number and leave.name is root.pair:  # b)
                 if len(self.t.get_leaves_by_name(root.pair)) >= 2:
-                    print('error B encontrado')
+                    # print('error B encontrado')
                     for w in root.way:
                         w.number = 1
                         w.ini = False
                         w.way = []
                         self.puzzle.candidate.append(w)
                     self.finish = True
+                    break
 
     def three_check_aux(self, father, rama, root):
         """...Y desde la pareja de la ultima Posicion es posible llegar a la pareja del primero usando cuadros libres o
@@ -271,13 +260,14 @@ class Checker:
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         """
-        if self.number == 2:  # para el numero 2.
-            for adj in father.adjacents:
+        if self.finish:
+            return
+        for adj in father.adjacents:
+            if self.number == 2:  # para el numero 2.
                 dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
                 if dist != self.number:
                     self.three_check_aux(adj, rama.add_child(name=adj), root)
-        else:  # para el resto de numeros mayores que 2.
-            for adj in father.adjacents:
+            else:  # para el resto de numeros mayores que 2.
                 dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
                 if abs(int(round(math.sqrt((adj.coordinate[0] - root.pair.coordinate[0]) ** 2 + (adj.coordinate[1] - root.pair.coordinate[1]) ** 2)))) <= root.number - dist:
                     if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
@@ -288,6 +278,16 @@ class Checker:
                             aux.append(a.name)
                         if adj not in aux:
                             self.three_check_aux(adj, rama.add_child(name=adj), root)
+        for leavea in rama.get_leaves():
+            if leavea.name.number == self.number and leavea.name is root.pair:
+                # print('error A encontrado')
+                for w in root.way:
+                    w.number = 1
+                    w.ini = False
+                    w.way = []
+                    self.puzzle.candidate.append(w)
+                self.finish = True
+                break
 
 
 def read_csv(fname):
@@ -385,7 +385,7 @@ def check(puzz, chec):
     """
     for pos1 in puzz.final:
         if pos1.number == chec.number and pos1.ini:
-            print('generando arbol')
+            # print('generando arbol')
             chec.three_check(pos1, chec.t.add_child(name=pos1), pos1)
             chec.t = Tree(';', format=1)
             chec.finish = False
@@ -413,8 +413,7 @@ def found_error(i):
                 p.candidate.append(w)
                 p.final.remove(w)
     [p.final.remove(pos1) for pos1 in p.candidate if pos1 in p.final]
-    print('finales: ', len(p.final))
-    print('candidatos: ', len(p.candidate))
+    print('finales: ', len(p.final), ' / ', 'candidatos: ', len(p.candidate))
 
 if __name__ == '__main__':
     if len(sys.argv) != 4:
@@ -437,6 +436,5 @@ if __name__ == '__main__':
             it -= 1
         it = it1
         it2 -= 1
-        timing.log('numero terminado: ', it2)
     p.final += p.candidate
     write_csv(p)
