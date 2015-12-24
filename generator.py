@@ -208,8 +208,8 @@ class Checker:
             rama (TreeNode): rama actual.
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
-        Se podria mejorar la velocidad viendo si desde la hoja donde estemos es posible llegar a algun self.number del
-        puzzle restandole la distancia que llevamos ya.
+        Se podria mejorar la velocidad viendo si desde la hoja donde estemos es posible llegar a algun self.number (que
+        no sea el mismo) del puzzle restandole la distancia que llevamos ya.
 
         """
         if self.finish:
@@ -227,12 +227,12 @@ class Checker:
                     aux = []
                     for a in rama.get_ancestors():
                         aux.append(a.name)
-                    if adj not in aux:
+                    if adj not in aux:  # para que no vuelva sobre si mismo.
                         self.three_check(adj, rama.add_child(name=adj), root)
-        for leave in rama.get_leaves():  # hacer la comprobacion aqui
+        for leave in rama.get_leaves():  # hacer la comprobacion aqui una vez la rama ha llegado al final.
             if leave.is_leaf() and leave.name.number == self.number and leave.name is not root.pair and abs(int(round(math.sqrt((leave.name.pair.coordinate[0] - root.pair.coordinate[0])**2 + (leave.name.pair.coordinate[1] - root.pair.coordinate[1])**2)))) <= root.number:  # a)
                 # print('generando arbol auxiliar')
-                self.three_check_aux(leave.name.pair, self.taux.add_child(name=leave.name.pair), root)
+                self.three_check_aux(leave.name.pair, self.taux.add_child(name=leave.name.pair), leave.name.pair)
                 self.taux = Tree(';', format=1)
             if leave.name.number == self.number and leave.name is root.pair:  # b)
                 if len(self.t.get_leaves_by_name(root.pair)) >= 2:
@@ -279,7 +279,7 @@ class Checker:
                         if adj not in aux:
                             self.three_check_aux(adj, rama.add_child(name=adj), root)
         for leavea in rama.get_leaves():
-            if leavea.name.number == self.number and leavea.name is root.pair:
+            if leavea.name.number == self.number and leavea.name is root.pair:  # a).
                 # print('error A encontrado')
                 for w in root.way:
                     w.number = 1
@@ -398,6 +398,7 @@ def found_error(i):
             i (int): numero analizado.
 
     """
+    print('numero de errores:', len(p.candidate))
     for pos1 in p.final:  # volver a construir la lista de candidatos.
         if pos1.number == 1 and pos1 not in p.candidate:
             for pos_ad in pos1.adjacents:
