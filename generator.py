@@ -20,6 +20,7 @@
 import sys
 import os
 import random
+import math
 from ete3 import Tree
 import timing
 
@@ -192,8 +193,9 @@ class Checker:
         self.t = Tree(';', format=1)
         self.taux = Tree(';', format=1)
         self.number = checkn
+        self.finish = False
 
-    def three_check(self, father, rama):
+    def three_check(self, father, rama, root):
         """Si desde una Posicion existe un camino hacia otra Posicion con el mismo numero sin que sea su pareja...
             (a) 3   0   3  	  (b) 3---*
                 |       |             |
@@ -204,27 +206,57 @@ class Checker:
         Args:
             father (Position): posicion actual.
             rama (TreeNode): rama actual.
+            root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
+
+        Se podria mejorar la velocidad viendo si desde la hoja donde estemos es posible llegar a algun self.number del
+        puzzle restandole la distancia que llevamos ya.
 
         """
-        if self.number == 2:  # para el numero 2.
-            for adj in father.adjacents:
-                dist = self.t.get_distance(self.t.get_tree_root(), rama)
-                if dist != self.number:
-                    self.three_check(adj, rama.add_child(name=adj))
-        else:  # para el resto de numeros mayores que 2.
-            for adj in father.adjacents:
-                dist = self.t.get_distance(self.t.get_tree_root(), rama)
-                if dist != self.number:
-                    if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
-                                                    (adj.number == 0 and len(adj.way) == self.number))) or\
-                            (dist == self.number - 1 and adj.number == self.number):
-                        aux = []
-                        for a in rama.get_ancestors():
-                            aux.append(a.name)
-                        if adj not in aux:
-                            self.three_check(adj, rama.add_child(name=adj))
+        if self.finish:
+            return
 
-    def three_check_aux(self, father, rama):
+        for adj in father.adjacents:
+            if self.number == 2:  # para el numero 2.
+                dist = self.t.get_distance(self.t.get_tree_root(), rama)
+                if dist != self.number:
+                    self.three_check(adj, rama.add_child(name=adj), root)
+            else:
+                dist = self.t.get_distance(self.t.get_tree_root(), rama)
+                if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
+                                                (adj.number == 0 and len(adj.way) == self.number))) or\
+                        (dist == self.number - 1 and adj.number == self.number):
+                    aux = []
+                    for a in rama.get_ancestors():
+                        aux.append(a.name)
+                    if adj not in aux:
+                        self.three_check(adj, rama.add_child(name=adj), root)
+        for leave in rama.get_leaves():  # hacer la comprobacion aqui
+            if leave.is_leaf() and leave.name.number == self.number and leave.name is not root.pair and abs(int(round(math.sqrt((leave.name.pair.coordinate[0] - root.pair.coordinate[0])**2 + (leave.name.pair.coordinate[1] - root.pair.coordinate[1])**2)))) <= root.number:  # a)
+                print('generando arbol auxiliar')
+                self.three_check_aux(leave.name.pair, self.taux.add_child(name=leave.name.pair), root)
+                # print(c.t.get_ascii(show_internal=True))
+                for leavea in self.taux.get_leaves():
+                    if leavea.name.number == self.number and leavea.name is root.pair:
+                        print('error A encontrado')
+                        for w in root.way:
+                            w.number = 1
+                            w.ini = False
+                            w.way = []
+                            self.puzzle.candidate.append(w)
+                        self.finish = True
+                        break
+                self.taux = Tree(';', format=1)
+            if leave.name.number == self.number and leave.name is root.pair:  # b)
+                if len(self.t.get_leaves_by_name(root.pair)) >= 2:
+                    print('error B encontrado')
+                    for w in root.way:
+                        w.number = 1
+                        w.ini = False
+                        w.way = []
+                        self.puzzle.candidate.append(w)
+                    self.finish = True
+
+    def three_check_aux(self, father, rama, root):
         """...Y desde la pareja de la ultima Posicion es posible llegar a la pareja del primero usando cuadros libres o
         su camino.
             (a) 3   0   3  	  (b) 3---*
@@ -236,17 +268,18 @@ class Checker:
         Args:
             father (Position): posicion actual.
             rama (TreeNode): rama actual.
+            root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         """
-        if self.number == 2:
+        if self.number == 2:  # para el numero 2.
             for adj in father.adjacents:
                 dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
                 if dist != self.number:
-                    self.three_check_aux(adj, rama.add_child(name=adj))
-        else:
+                    self.three_check_aux(adj, rama.add_child(name=adj), root)
+        else:  # para el resto de numeros mayores que 2.
             for adj in father.adjacents:
                 dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
-                if dist != self.number:
+                if abs(int(round(math.sqrt((adj.coordinate[0] - root.pair.coordinate[0]) ** 2 + (adj.coordinate[1] - root.pair.coordinate[1]) ** 2)))) <= root.number - dist:
                     if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
                                                     (adj.number == 0 and len(adj.way) == self.number)))\
                             or (dist == self.number - 1 and adj.number == self.number):
@@ -254,7 +287,7 @@ class Checker:
                         for a in rama.get_ancestors():
                             aux.append(a.name)
                         if adj not in aux:
-                            self.three_check_aux(adj, rama.add_child(name=adj))
+                            self.three_check_aux(adj, rama.add_child(name=adj), root)
 
 
 def read_csv(fname):
@@ -352,34 +385,10 @@ def check(puzz, chec):
     """
     for pos1 in puzz.final:
         if pos1.number == chec.number and pos1.ini:
-            chec.three_check(pos1, chec.t.add_child(name=pos1))
-            print('arbol generado')
-            # print(c.t.get_ascii(show_internal=True))
-            # farthest, dist = c.t.get_farthest_node()
-            # print("The farthest node from root is", farthest.name, "with dist=", dist)
-            for leave in chec.t.get_leaves():
-                if leave.name.number == chec.number and leave.name is not pos1.pair:  # a)
-                    chec.three_check_aux(leave.name.pair, chec.taux.add_child(name=leave.name.pair))
-                    # print(c.t.get_ascii(show_internal=True))
-                    for leavea in chec.taux.get_leaves():
-                        if leavea.name.number == chec.number and leavea.name is pos1.pair:
-                            print('error A encontrado')
-                            for w in pos1.way:
-                                w.number = 1
-                                w.ini = False
-                                w.way = []
-                                puzz.candidate.append(w)
-                            break
-                    chec.taux = Tree(';', format=1)
-                if leave.name.number == chec.number and leave.name is pos1.pair:  # b)
-                    if len(chec.t.get_leaves_by_name(pos1.pair)) >= 2:
-                        print('error B encontrado')
-                        for w in pos1.way:
-                            w.number = 1
-                            w.ini = False
-                            w.way = []
-                            puzz.candidate.append(w)
+            print('generando arbol')
+            chec.three_check(pos1, chec.t.add_child(name=pos1), pos1)
             chec.t = Tree(';', format=1)
+            chec.finish = False
 
 
 def found_error(i):
@@ -396,7 +405,7 @@ def found_error(i):
                     p.candidate.append(pos1)
                     p.final.remove(pos1)
                     break
-        elif len(pos1.way) < i:
+        elif pos1.number < i and len(pos1.way) < i:
             for w in pos1.way:
                 w.number = 1
                 w.ini = False
@@ -411,8 +420,6 @@ if __name__ == '__main__':
     if len(sys.argv) != 4:
         sys.stderr('Not enough params.')
         sys.exit(1)
-
-    # p = read_csv("/home/ealdor/Documentos/pypbp_virtualenv/pypbp/src/generator/puzzles/scissor_50x30.csv")
     p = read_csv(os.path.abspath(os.path.dirname(sys.argv[1]))+'/'+sys.argv[1].rsplit('/')[-1])
     p.initialice()  # inicializamos las listas candidata y final y los adyacentes.
     it2 = itm = int(sys.argv[2])  # numero maximo.
@@ -430,5 +437,6 @@ if __name__ == '__main__':
             it -= 1
         it = it1
         it2 -= 1
+        timing.log('numero terminado: ', it2)
     p.final += p.candidate
     write_csv(p)
