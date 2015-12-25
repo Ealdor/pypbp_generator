@@ -211,9 +211,6 @@ class Checker:
             rama (TreeNode): rama actual.
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
-        Se podria mejorar la velocidad viendo si desde la hoja donde estemos es posible llegar a algun self.number (que
-        no sea el mismo) del puzzle restandole la distancia que llevamos ya.
-
         """
         if self.finish:
             return
@@ -223,14 +220,14 @@ class Checker:
                 if dist != self.number:
                     self.three_check(adj, rama.add_child(name=adj), root)
             else:  # para el resto de numeros mayores que 2.
-
                 aux2 = False
-                for test in self.puzzle.final:
-                    if test is not root and test.number == self.number and abs(int(round(math.sqrt((father.coordinate[0] - test.coordinate[0]) ** 2 +
-                                           (father.coordinate[1] - test.coordinate[1]) ** 2)))) <= root.number - dist:
+                for test in self.puzzle.final:  # para mejorar la velocidad.
+                    if test is not root and test.number == self.number\
+                            and abs(int(round(math.sqrt((father.coordinate[0] - test.coordinate[0]) ** 2 +
+                                                        (father.coordinate[1] - test.coordinate[1]) ** 2)))
+                                    ) <= root.number - dist:
                         aux2 = True
                         break
-
                 if aux2:
                     if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
                                                     (adj.number == 0 and len(adj.way) == self.number))) or\
@@ -249,7 +246,7 @@ class Checker:
             self.taux = Tree(';', format=1)
         elif dist == self.number and father.number == self.number and father is root.pair:
             if len(self.t.get_leaves_by_name(root.pair)) >= 2:
-                print('error B encontrado')
+                # print('error B encontrado')
                 for w in root.way:
                     w.number = 1
                     w.ini = False
@@ -285,7 +282,7 @@ class Checker:
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check_aux(adj, rama.add_child(name=adj), root)
         if dist == self.number and father.number == self.number and father is root.pair:  # (a).
-            print('error A encontrado')
+            # print('error A encontrado')
             for w in root.way:
                 w.number = 1
                 w.ini = False
@@ -402,7 +399,7 @@ def found_error(i):
             i (int): numero analizado.
 
     """
-    print('numero de errores:', len(p.candidate)*i)
+    print('numero de errores: ', len(p.candidate)/i)
     for pos1 in p.final:  # volver a construir la lista de candidatos.
         if pos1.number == 1 and pos1 not in p.candidate:
             for pos_ad in pos1.adjacents:
