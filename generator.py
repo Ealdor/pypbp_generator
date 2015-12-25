@@ -22,7 +22,10 @@ import os
 import random
 import math
 from ete3 import Tree
-import timing
+try:
+    import timing
+except ImportError:
+    pass
 
 
 class Position:
@@ -214,28 +217,35 @@ class Checker:
         """
         if self.finish:
             return
-
         dist = self.t.get_distance(self.t.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2:  # para el numero 2.
                 if dist != self.number:
                     self.three_check(adj, rama.add_child(name=adj), root)
             else:  # para el resto de numeros mayores que 2.
-                if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
-                                                (adj.number == 0 and len(adj.way) == self.number))) or\
-                        (dist == self.number - 1 and adj.number == self.number):
-                    aux = []
-                    for a in rama.get_ancestors():
-                        aux.append(a.name)
-                    if adj not in aux:  # para que no vuelva sobre si mismo.
-                        self.three_check(adj, rama.add_child(name=adj), root)
+
+                aux2 = False
+                for test in self.puzzle.final:
+                    if test is not root and test.number == self.number and abs(int(round(math.sqrt((father.coordinate[0] - test.coordinate[0]) ** 2 +
+                                           (father.coordinate[1] - test.coordinate[1]) ** 2)))) <= root.number - dist:
+                        aux2 = True
+                        break
+
+                if aux2:
+                    if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
+                                                    (adj.number == 0 and len(adj.way) == self.number))) or\
+                            (dist == self.number - 1 and adj.number == self.number):
+                        aux = []
+                        for a in rama.get_ancestors():
+                            aux.append(a.name)
+                        if adj not in aux:  # para que no vuelva sobre si mismo.
+                            self.three_check(adj, rama.add_child(name=adj), root)
 
         if dist == self.number and father.number == self.number and father is not root.pair and\
                 abs(int(round(math.sqrt((father.pair.coordinate[0] - root.pair.coordinate[0])**2 +
                                         (father.pair.coordinate[1] - root.pair.coordinate[1])**2)))) <= root.number:
-            print('generando arbol auxiliar')
+            # print('generando arbol auxiliar')
             self.three_check_aux(father.pair, self.taux.add_child(name=father.pair), root)
-            print('generado arbol auxiliar')
             self.taux = Tree(';', format=1)
         elif dist == self.number and father.number == self.number and father is root.pair:
             if len(self.t.get_leaves_by_name(root.pair)) >= 2:
@@ -258,7 +268,6 @@ class Checker:
         """
         if self.finish:
             return
-
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2:  # para el numero 2.
@@ -275,7 +284,6 @@ class Checker:
                             aux.append(a.name)
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check_aux(adj, rama.add_child(name=adj), root)
-
         if dist == self.number and father.number == self.number and father is root.pair:  # (a).
             print('error A encontrado')
             for w in root.way:
@@ -381,7 +389,7 @@ def check(puzz, chec):
     """
     for pos1 in puzz.final:
         if pos1.number == chec.number and pos1.ini:
-            print('generando arbol')
+            # print('generando arbol')
             chec.three_check(pos1, chec.t.add_child(name=pos1), pos1)
             chec.t = Tree(';', format=1)
             chec.finish = False
@@ -394,7 +402,7 @@ def found_error(i):
             i (int): numero analizado.
 
     """
-    print('numero de errores:', len(p.candidate))
+    print('numero de errores:', len(p.candidate)*i)
     for pos1 in p.final:  # volver a construir la lista de candidatos.
         if pos1.number == 1 and pos1 not in p.candidate:
             for pos_ad in pos1.adjacents:
@@ -416,7 +424,6 @@ if __name__ == '__main__':
     if len(sys.argv) != 4:
         sys.stderr('Not enough params.')
         sys.exit(1)
-
     p = read_csv(os.path.abspath(os.path.dirname(sys.argv[1]))+'/'+sys.argv[1].rsplit('/')[-1])
     p.initialice()  # inicializamos las listas candidata y final y los adyacentes.
     it2 = itm = int(sys.argv[2])  # numero maximo.
