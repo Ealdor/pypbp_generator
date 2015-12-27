@@ -92,7 +92,7 @@ class Puzzle:
         inicializa la lista de posiciones candidatas con el resto.
 
         """
-        print('inicializando puzzle (candidatos', len(self.candidate), ')')
+        print('inicializando puzzle', end='\r')
         for pos1 in self.initial:
             for pos2 in self.initial:  # añadimos las Posiciones adyacentes a las Posiciones del Puzzle.
                 if pos2.coordinate in [(pos1.coordinate[0] + 1, pos1.coordinate[1]),
@@ -110,6 +110,7 @@ class Puzzle:
                         break
             else:
                 self.final.append(pos1)
+        print('inicializando puzzle ( candidatos', len(self.candidate), ')')
         print('='*40)
 
 
@@ -155,6 +156,7 @@ class Generator:
         """
         ran_adjacent_position = candidate_position.adjacents.pop(
             candidate_position.adjacents.index(random.choice(candidate_position.adjacents)))
+        # print(ran_adjacent_position)
         test = [ran_adjacent_position]
         while ran_adjacent_position.number != 1:
             if len(candidate_position.adjacents) != 0:
@@ -213,6 +215,9 @@ class Checker:
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         TODO: Mejorar la velocidad pasandole una lista con las nuevas incorporaciones y si no le afecta ni mirarlo,
+        TODO: Incluir caso (c): Si usando ceros suyos o ceros de otro (siempre del mismo) o ceros sin nada, es posible
+        llegar al menos 2 veces a su pareja Y el otro usando ceros del suyo, ceros del primero o ceros es posible
+        llegar al menos dos veces a su pareja.
 
         """
         if self.finish:
@@ -236,7 +241,7 @@ class Checker:
                                                     (adj.number == 0 and len(adj.way) == self.number))) or\
                             (dist == self.number - 1 and adj.number == self.number):
                         aux = []
-                        for a in rama.get_ancestors():
+                        for a in rama.iter_ancestors():
                             aux.append(a.name)
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check(adj, rama.add_child(name=adj), root)
@@ -256,6 +261,9 @@ class Checker:
                     w.pair = w
                     self.puzzle.candidate.append(w)
                 self.finish = True
+        else:  # eliminamos la rama que ya no necesitemos.
+            for anc in rama.iter_ancestors():
+                self.t.delete(anc)
 
     def three_check_aux(self, father, rama, root):
         """Construccion de arbol auxiliar para el caso (a).
@@ -280,7 +288,7 @@ class Checker:
                                                     (adj.number == 0 and len(adj.way) == self.number)))\
                             or (dist == self.number - 1 and adj.number == self.number):
                         aux = []
-                        for a in rama.get_ancestors():
+                        for a in rama.iter_ancestors():
                             aux.append(a.name)
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check_aux(adj, rama.add_child(name=adj), root)
@@ -293,6 +301,9 @@ class Checker:
                 w.pair = w
                 self.puzzle.candidate.append(w)
             self.finish = True
+        else:  # eliminamos la rama que ya no necesitemos.
+            for anc in rama.iter_ancestors():
+                self.t.delete(anc)
 
 
 def read_csv(fname):
@@ -357,27 +368,27 @@ def generate(puzz, gen):
     """
     print('generando puzzle')
     while len(puzz.candidate) > 0:  # generamos el puzzle mientras haya candidatos.
-            candidate = gen.step_one()
-            adjacent, candidate = gen.step_two(candidate)
-            while adjacent:
-                puzz.candidate.remove(adjacent)
-                if len(gen.temporal_way) < gen.max_number:
-                    adjacent, candidate = gen.step_two(adjacent)
-                else:
-                    break
-            gen.temporal_way[0].ini = True
-            for pos in gen.temporal_way:
-                if pos is gen.temporal_way[0]:
-                    pos.pair = gen.temporal_way[-1]
-                    pos.number = len(gen.temporal_way)
-                elif pos is gen.temporal_way[-1]:
-                    pos.pair = gen.temporal_way[0]
-                    pos.number = len(gen.temporal_way)
-                else:
-                    pos.number = 0
-                pos.way = gen.temporal_way.copy()
-                puzz.final.append(pos)
-            gen.temporal_way.clear()
+        candidate = gen.step_one()
+        adjacent, candidate = gen.step_two(candidate)
+        while adjacent:
+            puzz.candidate.remove(adjacent)
+            if len(gen.temporal_way) < gen.max_number:
+                adjacent, candidate = gen.step_two(adjacent)
+            else:
+                break
+        gen.temporal_way[0].ini = True
+        for pos in gen.temporal_way:
+            if pos is gen.temporal_way[0]:
+                pos.pair = gen.temporal_way[-1]
+                pos.number = len(gen.temporal_way)
+            elif pos is gen.temporal_way[-1]:
+                pos.pair = gen.temporal_way[0]
+                pos.number = len(gen.temporal_way)
+            else:
+                pos.number = 0
+            pos.way = gen.temporal_way.copy()
+            puzz.final.append(pos)
+        gen.temporal_way.clear()
 
 
 def check(puzz, chec):
@@ -411,22 +422,15 @@ def found_error(i):
         if pos1.number == 1 and pos1 not in p.candidate:
             for pos_ad in pos1.adjacents:
                 if pos_ad.number == 1:
-                    if pos_ad not in p.candidate:
-                        p.candidate.append(pos_ad)
-                    if pos_ad in p.final:
-                        p.final.remove(pos_ad)
-                    if pos1 not in p.candidate:
-                        p.candidate.append(pos1)
-                    if pos1 in p.final:
-                        p.final.remove(pos1)
-        elif pos1.number < i and len(pos1.way) < i:
+                    p.candidate.append(pos1)
+                    break
+        elif pos1.number < i and pos1 not in p.candidate and pos1.number != 1 and len(pos1.way) < i:
             for w in pos1.way:
                 w.number = 1
                 w.ini = False
                 w.way = []
                 w.pair = w
                 p.candidate.append(w)
-                p.final.remove(w)
     [p.final.remove(pos1) for pos1 in p.candidate if pos1 in p.final]
     print('finales: ', len(p.final), ' / ', 'candidatos: ', len(p.candidate))
     print('='*40)
