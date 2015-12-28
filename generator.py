@@ -218,6 +218,9 @@ class Checker:
         TODO: Incluir caso (c): Si usando ceros suyos o ceros de otro (siempre del mismo) o ceros sin nada, es posible
         llegar al menos 2 veces a su pareja Y el otro usando ceros del suyo, ceros del primero o ceros es posible
         llegar al menos dos veces a su pareja.
+        TODO: Incluir caso (d).
+        TODO: Puzzles de color.
+        TODO: Mejorar velocidad para que en el caso del 2 no inspeccione los errores de los demas numeros.
 
         """
         if self.finish:
