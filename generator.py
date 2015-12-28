@@ -214,7 +214,6 @@ class Checker:
             rama (TreeNode): rama actual.
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
-        TODO: Mejorar la velocidad pasandole una lista con las nuevas incorporaciones y si no le afecta ni mirarlo,
         TODO: Incluir caso (c): Si usando ceros suyos o ceros de otro (siempre del mismo) o ceros sin nada, es posible
         llegar al menos 2 veces a su pareja Y el otro usando ceros del suyo, ceros del primero o ceros es posible
         llegar al menos dos veces a su pareja.
@@ -392,6 +391,19 @@ def generate(puzz, gen):
             pos.way = gen.temporal_way.copy()
             puzz.final.append(pos)
         gen.temporal_way.clear()
+    # reseteamos aquellos que sean menores que el numero generado ya que no hace falta ver sus errores.
+    for pos1 in puzz.final:
+        if pos1.number < gen.max_number and pos1 not in p.candidate and pos1.number != 1 and len(pos1.way) < gen.max_number and len(pos1.way) > 0:
+            for w in pos1.way:
+                if w is not pos1:
+                    w.number = 1
+                    w.ini = False
+                    w.way = []
+                    w.pair = w
+            pos1.number = 1
+            pos1.ini = False
+            pos1.way = []
+            pos1.pair = pos1
 
 
 def check(puzz, chec):
@@ -422,18 +434,26 @@ def found_error(i):
     """
     print('\nnumero de errores:', int(len(p.candidate)/i))
     for pos1 in p.final:  # volver a construir la lista de candidatos.
+        # aquellos 1's que tengan 1's adyacentes.
         if pos1.number == 1 and pos1 not in p.candidate:
             for pos_ad in pos1.adjacents:
                 if pos_ad.number == 1:
                     p.candidate.append(pos1)
                     break
-        elif pos1.number < i and pos1 not in p.candidate and pos1.number != 1 and len(pos1.way) < i:
+        # auqellos que sean menores que el numero chequeado.
+        elif pos1.number < i and pos1 not in p.candidate and pos1.number != 1 and len(pos1.way) < i and len(pos1.way) > 0:
             for w in pos1.way:
-                w.number = 1
-                w.ini = False
-                w.way = []
-                w.pair = w
-                p.candidate.append(w)
+                if w is not pos1:
+                    w.number = 1
+                    w.ini = False
+                    w.way = []
+                    w.pair = w
+                    p.candidate.append(w)
+            pos1.number = 1
+            pos1.ini = False
+            pos1.way = []
+            pos1.pair = pos1
+            p.candidate.append(pos1)
     [p.final.remove(pos1) for pos1 in p.candidate if pos1 in p.final]
     print('finales: ', len(p.final), ' / ', 'candidatos: ', len(p.candidate))
     print('='*40)
@@ -448,7 +468,7 @@ if __name__ == '__main__':
     it1 = it = int(sys.argv[3])  # numero de iteraciones por numero.
     while it2 > 1:
         while it > 0:
-            print('numero:', it2, '- iteracion:', it)
+            print('numero:', it2, '- iteracion:', it1 + 1 - it, 'de', it1)
             g = Generator(p, it2)  # creamos el generador.
             generate(p, g)  # generamos el puzzle.
             for it3 in range(it2, itm + 1):  # buscar errores por cada uno de los numeros entre el maximo y el generado.
