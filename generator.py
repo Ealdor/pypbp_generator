@@ -253,8 +253,21 @@ class Checker:
             # print('generando arbol auxiliar')
             self.three_check_aux(father.pair, self.taux.add_child(name=father.pair), root)
             self.taux = Tree(';', format=1)
+            rama.detach()
         elif dist == self.number and father.number == self.number and father is root.pair:
-            if len(self.t.get_leaves_by_name(root.pair)) >= 2:
+            aux = []
+            for a in rama.iter_ancestors():
+                if type(a.name) is Position:
+                    aux.append(a.name)
+            aux.append(father)
+            only = False
+            for a in aux:
+                if a in root.way:
+                    only = True
+                else:
+                    only = False
+                    break
+            if not only:
                 # print('error B encontrado')
                 for w in root.way:
                     w.number = 1
@@ -264,8 +277,7 @@ class Checker:
                     self.puzzle.candidate.append(w)
                 self.finish = True
         else:  # eliminamos la rama que ya no necesitemos.
-            for anc in rama.iter_ancestors():
-                self.t.delete(anc)
+            rama.detach()
 
     def three_check_aux(self, father, rama, root):
         """Construccion de arbol auxiliar para el caso (a).
@@ -304,8 +316,7 @@ class Checker:
                 self.puzzle.candidate.append(w)
             self.finish = True
         else:  # eliminamos la rama que ya no necesitemos.
-            for anc in rama.iter_ancestors():
-                self.t.delete(anc)
+            rama.detach()
 
 
 def read_csv(fname):
