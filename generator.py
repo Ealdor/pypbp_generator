@@ -251,8 +251,6 @@ class Checker:
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check(adj, rama.add_child(name=adj), root)
-        if self.taux.__len__() > self.number:
-            print('aaa')
         if dist == self.number and father.number == self.number and father is not root.pair and\
                 abs(int(round(math.sqrt((father.pair.coordinate[0] - root.pair.coordinate[0])**2 +
                                         (father.pair.coordinate[1] - root.pair.coordinate[1])**2)))) <= root.number:
@@ -298,8 +296,6 @@ class Checker:
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check_aux(adj, rama.add_child(name=adj), root)
-        if self.taux.__len__() > self.number:
-            print('aaa')
         if dist == self.number and father.number == self.number and father is root.pair:  # (a).
             # print('error A encontrado')
             for w in root.way:
@@ -395,7 +391,8 @@ def generate(puzz, gen):
         gen.temporal_way.clear()
     # reseteamos aquellos que sean menores que el numero generado ya que no hace falta ver sus errores.
     for pos1 in puzz.final:
-        if pos1.number < gen.max_number and pos1 not in p.candidate and pos1.number != 1 and len(pos1.way) < gen.max_number and len(pos1.way) > 0:
+        if pos1.number < gen.max_number and pos1 not in p.candidate and pos1.number != 1 and gen.max_number > len(
+                pos1.way) > 0:
             for w in pos1.way:
                 if w is not pos1:
                     w.clear()
@@ -437,7 +434,7 @@ def found_error(i):
                     p.candidate.append(pos1)
                     break
         # aquellos que sean menores que el numero chequeado.
-        elif pos1.number < i and pos1 not in p.candidate and pos1.number != 1 and len(pos1.way) < i and len(pos1.way) > 0:
+        elif pos1.number < i and pos1 not in p.candidate and pos1.number != 1 and i > len(pos1.way) > 0:
             for w in pos1.way:
                 if w is not pos1:
                     w.clear()
