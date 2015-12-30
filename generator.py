@@ -63,10 +63,26 @@ class Position:
         return "%s[%s]" % (repr(self.coordinate), self.number)
 
     def clear(self):
+        """Resetea una posicion.
+
+        """
         self.number = 1
         self.ini = False
         self.way = []
         self.pair = self
+
+    def euclides(self, pos):
+        """
+
+        Args:
+            pos (Position): posicion destino.
+
+        Returns:
+            Distancia entre las dos posiciones.
+
+        """
+        return abs(int(round(math.sqrt((self.coordinate[0] - pos.coordinate[0]) ** 2 +
+                                       (self.coordinate[1] - pos.coordinate[1]) ** 2))))
 
 
 class Puzzle:
@@ -162,7 +178,6 @@ class Generator:
         """
         ran_adjacent_position = candidate_position.adjacents.pop(
             candidate_position.adjacents.index(random.choice(candidate_position.adjacents)))
-        # print(ran_adjacent_position)
         test = [ran_adjacent_position]
         while ran_adjacent_position.number != 1:
             if len(candidate_position.adjacents) != 0:
@@ -223,13 +238,13 @@ class Checker:
         TODO: Incluir caso (c): Si usando ceros suyos o ceros de otro (siempre del mismo) o ceros sin nada, es posible
         llegar al menos 2 veces a su pareja Y el otro usando ceros del suyo, ceros del primero o ceros es posible
         llegar al menos dos veces a su pareja.
+        TODO: Multihilo que cada uno se ocupe de un adyacente y se paren si encuentran un error, Esperan a que todos
+        terminen.
         TODO: Incluir caso (d).
         TODO: Puzzles de color.
         TODO: Mejorar velocidad para que en el caso del 2 no inspeccione los errores de los demas numeros.
 
         """
-        if self.finish:
-            return
         dist = self.t.get_distance(self.t.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2:  # para el numero 2.
@@ -238,41 +253,43 @@ class Checker:
             else:  # para el resto de numeros mayores que 2.
                 aux2 = False
                 for test in self.puzzle.final:  # para mejorar la velocidad.
-                    if test is not root and test.number == self.number\
-                            and abs(int(round(math.sqrt((father.coordinate[0] - test.coordinate[0]) ** 2 +
-                                                        (father.coordinate[1] - test.coordinate[1]) ** 2)))
-                                    ) <= root.number - dist:
+                    if test is not root and test.number == self.number and test.euclides(father) <= root.number - dist:
                         aux2 = True
                         break
-                if aux2:
-                    if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
-                                                    (adj.number == 0 and len(adj.way) == self.number))) or\
+                # if aux2 and (dist < self.number - 1 and adj.number == 0) or (dist == self.number - 1 and
+                #                                                              adj.number == self.number):
+                if aux2 and (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
+                                                         (adj.number == 0 and len(adj.way) == self.number))) or\
                             (dist == self.number - 1 and adj.number == self.number):
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check(adj, rama.add_child(name=adj), root)
-        if dist == self.number and father.number == self.number and father is not root.pair and\
-                abs(int(round(math.sqrt((father.pair.coordinate[0] - root.pair.coordinate[0])**2 +
-                                        (father.pair.coordinate[1] - root.pair.coordinate[1])**2)))) <= root.number:
-            # print('generando arbol auxiliar')
-            self.three_check_aux(father.pair, self.taux.add_child(name=father.pair), root)
-            self.taux = Tree(';', format=1)
-            rama.detach()
-        elif dist == self.number and father.number == self.number and father is root.pair:
+        if self.finish:
+            return
+        elif father.number == self.number and dist == self.number:
             aux = [a.name for a in rama.iter_ancestors() if type(a.name) is Position]
             aux.append(father)
-            only = sum(a in root.way for a in aux)
-            if only != self.number:
-                # print('error B encontrado')
-                for w in root.way:
-                    w.clear()
-                    self.puzzle.candidate.append(w)
-                self.finish = True
-        else:  # eliminamos la rama que ya no necesitemos.
-            rama.detach()
+            if father is not root.pair and father.pair.euclides(root.pair) <= root.number - 1:
+                casea = sum(a.number == 0 and (len(a.way) == 0 or len(a.way) == self.number) for a in aux)
+                if casea == self.number - 2:
+                    # print('generando arbol auxiliar')
+                    self.three_check_aux(father.pair, self.taux.add_child(name=father.pair), root)
+                    self.taux = Tree(';', format=1)
+            elif father is root.pair:
+                only = sum(a in root.way for a in aux)
+                caseb = sum(a is not root and a is not root.pair or (a.number == 0 and len(a.way) == 0) for a in aux)
+                if only == self.number:
+                    pass
+                elif caseb == self.number - 2:
+                    # print('error B encontrado')
+                    for w in root.way:
+                        w.clear()
+                        self.puzzle.candidate.append(w)
+                    self.finish = True
+        rama.detach()
 
     def three_check_aux(self, father, rama, root):
-        """Construccion de arbol auxiliar para el caso (a).
+        """Construccion de arbol auxiliar para el caso A.
 
         Args:
             father (Position): posicion actual.
@@ -280,30 +297,28 @@ class Checker:
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         """
-        if self.finish:
-            return
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2:  # para el numero 2.
                 if dist != self.number:
                     self.three_check_aux(adj, rama.add_child(name=adj), root)
             else:  # para el resto de numeros mayores que 2.
-                if abs(int(round(math.sqrt((adj.coordinate[0] - root.pair.coordinate[0]) ** 2 +
-                                           (adj.coordinate[1] - root.pair.coordinate[1]) ** 2)))) <= root.number - dist:
+                if father.euclides(root.pair) <= root.number - dist:
                     if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
                                                     (adj.number == 0 and len(adj.way) == self.number)))\
                             or (dist == self.number - 1 and adj.number == self.number):
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check_aux(adj, rama.add_child(name=adj), root)
-        if dist == self.number and father.number == self.number and father is root.pair:  # (a).
+        if self.finish:
+            return
+        elif father.number == self.number and dist == self.number and father is root.pair:  # caso A.
             # print('error A encontrado')
             for w in root.way:
                 w.clear()
                 self.puzzle.candidate.append(w)
             self.finish = True
-        else:  # eliminamos la rama que ya no necesitemos.
-            rama.detach()
+        rama.detach()
 
 
 def read_csv(fname):
