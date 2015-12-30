@@ -17,6 +17,12 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
+# TODO: Multihilo que cada uno se ocupe de un adyacente y se paren si encuentran un error, Esperan a que todos terminen.
+# TODO: Incluir caso (c).
+# TODO: Incluir caso (d).
+# TODO: Puzzles de color.
+# TODO: Mejorar velocidad para que en el caso del 2 no inspeccione los errores de los demas numeros.
+
 import sys
 import os
 import random
@@ -230,19 +236,19 @@ class Checker:
                 |       |                                   |   |             |
                 3   0   3                       7---*---*---*   7   1         2   2---2
 
+        Caso A: Si usando ceros suyos o ceros de otro (de la misma longitud) o ceros sin nada, es posible llegar a un
+        numero igual que el suyo sin ser su pareja Y desde la pareja del nuevo es posible llegar a la pareja del
+        primero usando ceros suyos o ceros de otros (de la misma longitud) o ceros sin nada.
+        Caso B: Si usando ceros sin nada, es posible llegar a a la misma pareja.
+        Caso C: Si usando ceros suyos o ceros de otro (siempre del mismo) o ceros sin nada, es posible llegar al menos
+        2 veces a su pareja Y el otro usando ceros del suyo, ceros del primero o ceros es posible llegar al menos
+        dos veces a su pareja.
+        Caso D: Si es posible formar un camino cerrado usando parejas.
+
         Args:
             father (Position): posicion actual.
             rama (TreeNode): rama actual.
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
-
-        TODO: Incluir caso (c): Si usando ceros suyos o ceros de otro (siempre del mismo) o ceros sin nada, es posible
-        llegar al menos 2 veces a su pareja Y el otro usando ceros del suyo, ceros del primero o ceros es posible
-        llegar al menos dos veces a su pareja.
-        TODO: Multihilo que cada uno se ocupe de un adyacente y se paren si encuentran un error, Esperan a que todos
-        terminen.
-        TODO: Incluir caso (d).
-        TODO: Puzzles de color.
-        TODO: Mejorar velocidad para que en el caso del 2 no inspeccione los errores de los demas numeros.
 
         """
         dist = self.t.get_distance(self.t.get_tree_root(), rama)
