@@ -261,9 +261,9 @@ class Checker:
                         aux2 = True
                         break
                 if aux2:
-                    if (self.number > 4 and (dist < self.number - 1 and adj.number == 0) or (
+                    if (self.number > 3 and (dist < self.number - 1 and adj.number == 0) or (
                                     dist == self.number - 1 and adj.number == self.number)) or\
-                       (self.number <= 4 and (dist < self.number - 1 and
+                       (self.number <= 3 and (dist < self.number - 1 and
                                               ((adj.number == 0 and len(adj.way) == 0) or
                                                (adj.number == 0 and len(adj.way) == self.number))) or
                        (dist == self.number - 1 and adj.number == self.number)):
@@ -282,11 +282,11 @@ class Checker:
                     self.taux = Tree(';', format=1)
             elif father is root.pair:
                 only = sum(a in root.way for a in aux)
-                caseb = sum((a.number == 0 and (len(a.way) == 0) or len(a.way) == self.number) for a in aux)
+                caseb = sum((a.number == 0 and (len(a.way) == 0 or len(a.way) == self.number)) for a in aux)
                 casec = None
-                if self.number > 4:
+                if self.number > 3:
                     for a in aux:
-                        if len(a.way) != self.number and len(a.way) > 4:
+                        if len(a.way) != self.number and len(a.way) > 3:
                             casec = a
                             break
                 if casec is not None:
@@ -296,7 +296,7 @@ class Checker:
                             break
                 if only == self.number:
                     pass
-                elif caseb == self.number:
+                elif caseb == self.number - 2:
                     # print('error B encontrado')
                     for w in root.way:
                         w.clear()
