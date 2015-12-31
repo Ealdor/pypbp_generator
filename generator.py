@@ -17,8 +17,8 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
-# TODO: Multihilo que cada uno se ocupe de un adyacente y se paren si encuentran un error, Esperan a que todos terminen.
-# TODO: Incluir caso (d).
+# TODO: Multihilo para incrementar la velocidad de generacion.
+# TODO: Incluir caso (d). Quizas solo para el caso 2.
 # TODO: Puzzles de color.
 
 import sys
@@ -30,6 +30,9 @@ try:
     import timing
 except ImportError:
     pass
+
+maxf = []
+maxe = None
 
 
 class Position:
@@ -366,9 +369,14 @@ class Checker:
             return
         elif dist == ncasec.number and father is ncasec.pair:  # caso C.
             # print('error C encontrado')
-            for w in root.way:
-                w.clear()
-                self.puzzle.candidate.append(w)
+            if ncasec.number > root.number:
+                for w in root.way:
+                    w.clear()
+                    self.puzzle.candidate.append(w)
+            else:
+                for w in ncasec.way:
+                    w.clear()
+                    self.puzzle.candidate.append(w)
             self.finish = True
         rama.detach()
 
@@ -492,6 +500,8 @@ def found_error(i):
             i (int): numero analizado.
 
     """
+    auxf = p.final  # salvar final.
+
     print('\nnumero de errores:', int(len(p.candidate)/i))
     for pos1 in p.final:  # volver a construir la lista de candidatos.
         # aquellos 1's que tengan 1's adyacentes.
@@ -509,14 +519,21 @@ def found_error(i):
             pos1.clear()
             p.candidate.append(pos1)
     [p.final.remove(pos1) for pos1 in p.candidate if pos1 in p.final]
-    print('finales: ', len(p.final), ' / ', 'candidatos: ', len(p.candidate))
+
+    global maxe, maxf  # salvar longitud y ver si no es menor que el anterior. Si es menor restaurar final.
+    if maxe is None or maxe >= len(p.candidate):
+        maxe = len(p.candidate)
+        maxf = auxf
+    elif maxe < len(p.candidate):
+        p.final = auxf
+
+    print('finales: ', len(maxf), ' / ', 'candidatos: ', maxe)
     print('='*40)
 
 if __name__ == '__main__':
     if len(sys.argv) != 4:
         sys.stderr('Not enough params.')
         sys.exit(1)
-
     p = read_csv(os.path.abspath(os.path.dirname(sys.argv[1]))+'/'+sys.argv[1].rsplit('/')[-1])
     p.initialice()  # inicializamos las listas candidata y final y los adyacentes.
     it2 = itm = int(sys.argv[2])  # numero maximo.
