@@ -228,6 +228,7 @@ class Checker:
         self.taux = Tree(';', format=1)
         self.number = checkn
         self.finish = False
+        self.casee = 0
 
     def three_check(self, father, rama, root):
         """Posibles casos:
@@ -240,11 +241,12 @@ class Checker:
         Caso A: Si usando ceros suyos o ceros de otro (de la misma longitud) o ceros sin nada, es posible llegar a un
         numero igual que el suyo sin ser su pareja Y desde la pareja del nuevo es posible llegar a la pareja del
         primero usando ceros suyos o ceros de otros (de la misma longitud) o ceros sin nada.
-        Caso B: Si usando ceros sin nada, es posible llegar a a la misma pareja.
+        Caso B: Si usando ceros sin nada, es posible llegar a la misma pareja.
         Caso C: Si usando ceros suyos o ceros de otro (siempre del mismo) o ceros sin nada, es posible llegar al menos
         2 veces a su pareja Y el otro usando ceros del suyo, ceros del primero o ceros es posible llegar al menos
         dos veces a su pareja.
         Caso D: Si es posible formar un camino cerrado usando parejas.
+        Caso E: Si usando ceros suyos es posible llegar a su pareja al menos dos veces.
 
         Args:
             father (Position): posicion actual.
@@ -298,7 +300,13 @@ class Checker:
                             casec = None
                             break
                 if only == self.number:
-                    pass
+                    self.casee += 1
+                    if self.casee > 1:
+                        for w in root.way:
+                            w.clear()
+                            self.puzzle.candidate.append(w)
+                        self.finish = True
+                        # print('error E encontrado')
                 elif caseb == self.number - 2:
                     # print('error B encontrado')
                     for w in root.way:
@@ -489,6 +497,7 @@ def check(puzz, chec):
         if pos1.number == chec.number and pos1.ini:
             # print('generando arbol')
             chec.three_check(pos1, chec.t.add_child(name=pos1), pos1)
+            chec.casee = 0
             chec.t = Tree(';', format=1)
             chec.finish = False
 
