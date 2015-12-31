@@ -18,10 +18,8 @@
 ###############################################################################
 
 # TODO: Multihilo que cada uno se ocupe de un adyacente y se paren si encuentran un error, Esperan a que todos terminen.
-# TODO: Incluir caso (c).
 # TODO: Incluir caso (d).
 # TODO: Puzzles de color.
-# TODO: Mejorar velocidad para que en el caso del 2 no inspeccione los errores de los demas numeros.
 
 import sys
 import os
@@ -262,11 +260,13 @@ class Checker:
                     if test is not root and test.number == self.number and test.euclides(father) <= root.number - dist:
                         aux2 = True
                         break
-                # if aux2 and (dist < self.number - 1 and adj.number == 0) or (dist == self.number - 1 and
-                #                                                              adj.number == self.number):
-                if aux2 and (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
-                                                         (adj.number == 0 and len(adj.way) == self.number))) or\
-                            (dist == self.number - 1 and adj.number == self.number):
+                if aux2:
+                    if (self.number > 4 and (dist < self.number - 1 and adj.number == 0) or (
+                                    dist == self.number - 1 and adj.number == self.number)) or\
+                       (self.number <= 4 and (dist < self.number - 1 and
+                                              ((adj.number == 0 and len(adj.way) == 0) or
+                                               (adj.number == 0 and len(adj.way) == self.number))) or
+                       (dist == self.number - 1 and adj.number == self.number)):
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check(adj, rama.add_child(name=adj), root)
@@ -278,23 +278,37 @@ class Checker:
             if father is not root.pair and father.pair.euclides(root.pair) <= root.number - 1:
                 casea = sum(a.number == 0 and (len(a.way) == 0 or len(a.way) == self.number) for a in aux)
                 if casea == self.number - 2:
-                    # print('generando arbol auxiliar')
-                    self.three_check_aux(father.pair, self.taux.add_child(name=father.pair), root)
+                    self.case_a_aux(father.pair, self.taux.add_child(name=father.pair), root)
                     self.taux = Tree(';', format=1)
             elif father is root.pair:
                 only = sum(a in root.way for a in aux)
-                caseb = sum(a is not root and a is not root.pair or (a.number == 0 and len(a.way) == 0) for a in aux)
+                caseb = sum((a.number == 0 and (len(a.way) == 0) or len(a.way) == self.number) for a in aux)
+                casec = None
+                if self.number > 4:
+                    for a in aux:
+                        if len(a.way) != self.number and len(a.way) > 4:
+                            casec = a
+                            break
+                if casec is not None:
+                    for a in aux:
+                        if not (a in root.way or a in casec.way or (a.number == 0 and len(a.way) == 0)):
+                            casec = None
+                            break
                 if only == self.number:
                     pass
-                elif caseb == self.number - 2:
+                elif caseb == self.number:
                     # print('error B encontrado')
                     for w in root.way:
                         w.clear()
                         self.puzzle.candidate.append(w)
                     self.finish = True
+                elif casec is not None:
+                    ncaseci = [elem for elem in casec.way if elem.number != 0 and elem.ini][0]
+                    self.case_c_aux(ncaseci, self.taux.add_child(name=ncaseci), root, ncaseci)
+                    self.taux = Tree(';', format=1)
         rama.detach()
 
-    def three_check_aux(self, father, rama, root):
+    def case_a_aux(self, father, rama, root):
         """Construccion de arbol auxiliar para el caso A.
 
         Args:
@@ -307,7 +321,7 @@ class Checker:
         for adj in father.adjacents:
             if self.number == 2:  # para el numero 2.
                 if dist != self.number:
-                    self.three_check_aux(adj, rama.add_child(name=adj), root)
+                    self.case_a_aux(adj, rama.add_child(name=adj), root)
             else:  # para el resto de numeros mayores que 2.
                 if father.euclides(root.pair) <= root.number - dist:
                     if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
@@ -315,11 +329,43 @@ class Checker:
                             or (dist == self.number - 1 and adj.number == self.number):
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
-                            self.three_check_aux(adj, rama.add_child(name=adj), root)
+                            self.case_a_aux(adj, rama.add_child(name=adj), root)
         if self.finish:
+            rama.detach()
             return
         elif father.number == self.number and dist == self.number and father is root.pair:  # caso A.
             # print('error A encontrado')
+            for w in root.way:
+                w.clear()
+                self.puzzle.candidate.append(w)
+            self.finish = True
+        rama.detach()
+
+    def case_c_aux(self, father, rama, root, ncasec):
+        """Construccion de arbol auxiliar para el caso A.
+
+        Args:
+            father (Position): posicion actual.
+            rama (TreeNode): rama actual.
+            root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
+            ncasec (Position): posicion del caso c (auxiliar).
+
+        """
+        dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
+        for adj in father.adjacents:
+            if father.euclides(ncasec.pair) <= ncasec.number - dist:
+                if (dist < ncasec.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
+                                                  (adj.number == 0 and adj in root.way) or
+                                                  (adj.number == 0 and adj in ncasec.way)))\
+                        or (dist == ncasec.number - 1 and adj.number == ncasec.number):
+                    aux = [a.name for a in rama.iter_ancestors()]
+                    if adj not in aux:  # para que no vuelva sobre si mismo.
+                        self.case_c_aux(adj, rama.add_child(name=adj), root, ncasec)
+        if self.finish:
+            rama.detach()
+            return
+        elif dist == ncasec.number and father is ncasec.pair:  # caso C.
+            # print('error C encontrado')
             for w in root.way:
                 w.clear()
                 self.puzzle.candidate.append(w)
@@ -470,6 +516,7 @@ if __name__ == '__main__':
     if len(sys.argv) != 4:
         sys.stderr('Not enough params.')
         sys.exit(1)
+
     p = read_csv(os.path.abspath(os.path.dirname(sys.argv[1]))+'/'+sys.argv[1].rsplit('/')[-1])
     p.initialice()  # inicializamos las listas candidata y final y los adyacentes.
     it2 = itm = int(sys.argv[2])  # numero maximo.
@@ -479,10 +526,15 @@ if __name__ == '__main__':
             print('numero:', it2, '- iteracion:', it1 + 1 - it, 'de', it1)
             g = Generator(p, it2)  # creamos el generador.
             generate(p, g)  # generamos el puzzle.
-            for it3 in range(it2, itm + 1):  # buscar errores por cada uno de los numeros entre el maximo y el generado.
-                print('buscando errores del numero:', it3)
-                c = Checker(p, it3)  # creamos el comprobador.
+            if it2 == 2:
+                print('buscando errores del numero:', it2)
+                c = Checker(p, it2)  # creamos el comprobador.
                 check(p, c)  # comprobamos.
+            else:
+                for it3 in range(it2, itm + 1):  # errores por cada uno de los numeros entre el maximo y el generado.
+                    print('buscando errores del numero:', it3)
+                    c = Checker(p, it3)  # creamos el comprobador.
+                    check(p, c)  # comprobamos.
             found_error(it2)
             if len(p.candidate) == 0:
                 it2 = 0
