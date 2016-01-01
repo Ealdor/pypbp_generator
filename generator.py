@@ -334,7 +334,7 @@ class Checker:
         """
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
-            if self.number == 2 and root.color == adj.color:  # para el numero 2.
+            if self.number == 2 and root.color == adj.color:
                 if dist != self.number:
                     self.case_a_aux(adj, rama.add_child(name=adj), root)
             else:
@@ -567,7 +567,7 @@ def write_json(puzzle):
     col = []
     for pos1 in sorted(puzzle.final, key=lambda position: (position.coordinate[1], position.coordinate[0])):
         color = pos1.color
-        col.append({'color': {'r': color[0], 'b': color[2], 'g': color[1]}, 'number': pos1.number})
+        col.append({'color': {'r': color[0], 'b': color[1], 'g': color[2]}, 'number': pos1.number})
         ncolumn += 1
         if ncolumn == puzzle.size[1]:
             row.append(col)
