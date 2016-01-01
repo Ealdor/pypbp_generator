@@ -256,10 +256,10 @@ class Checker:
         """
         dist = self.t.get_distance(self.t.get_tree_root(), rama)
         for adj in father.adjacents:
-            if self.number == 2:  # para el numero 2.
+            if self.number == 2:
                 if dist != self.number and root.color == adj.color:
                     self.three_check(adj, rama.add_child(name=adj), root)
-            else:  # para el resto de numeros mayores que 2.
+            else:
                 aux2 = False
                 for test in self.puzzle.final:  # para mejorar la velocidad.
                     if test is not root and test.number == self.number and test.euclides(father) <= root.number - dist:
@@ -337,7 +337,7 @@ class Checker:
             if self.number == 2 and root.color == adj.color:  # para el numero 2.
                 if dist != self.number:
                     self.case_a_aux(adj, rama.add_child(name=adj), root)
-            else:  # para el resto de numeros mayores que 2.
+            else:
                 if father.euclides(root.pair) <= root.number - dist and adj.color == root.color:
                     if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
                                                     (adj.number == 0 and len(adj.way) == self.number)))\
@@ -348,7 +348,7 @@ class Checker:
         if self.finish:
             rama.detach()
             return
-        elif father.number == self.number and dist == self.number and father is root.pair:  # caso A.
+        elif father.number == self.number and dist == self.number and father is root.pair:
             # print('error A encontrado:', root)
             for w in root.way:
                 w.clear()
@@ -379,7 +379,7 @@ class Checker:
         if self.finish:
             rama.detach()
             return
-        elif dist == ncasec.number and father is ncasec.pair:  # caso C.
+        elif dist == ncasec.number and father is ncasec.pair:
             # print('error C encontrado:', root)
             if ncasec.number > root.number:
                 for w in root.way:
@@ -563,7 +563,8 @@ def read_json(fname):
 def write_json(puzzle):
     file = open("temp.json", 'w')
     ncolumn = 0
-    row = col = []
+    row = []
+    col = []
     for pos1 in sorted(puzzle.final, key=lambda position: (position.coordinate[1], position.coordinate[0])):
         color = pos1.color
         col.append({'color': {'r': color[0], 'b': color[2], 'g': color[1]}, 'number': pos1.number})
@@ -597,8 +598,8 @@ if __name__ == '__main__':
             else:
                 for it3 in range(it2, itm + 1):  # errores por cada uno de los numeros entre el maximo y el generado.
                     print('buscando errores del numero:', it3)
-                    c = Checker(p, it3)  # creamos el comprobador.
-                    check(p, c)  # comprobamos.
+                    c = Checker(p, it3)
+                    check(p, c)
             found_error(it2)
             if len(p.candidate) == 0:
                 it2 = 0
