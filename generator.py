@@ -17,14 +17,11 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
-# TODO: Multihilo para incrementar la velocidad de generacion.
-# TODO: Incluir caso (d). Quizas solo para el caso 2.
-# TODO: Puzzles de color.
-
 import sys
 import os
 import random
 import math
+import json
 from ete3 import Tree
 try:
     import timing
@@ -40,7 +37,7 @@ class Position:
 
     Attributes:
         coordinate (tuple): tupla con las coordenadas de la Posicion.
-        color (tuple): color del numero.
+        color (list): color del numero.
         way (list): lista de conexiones.
         number (int): numero del cuadrado.
         adjacents (list): lista de Posiciones adyacentes.
@@ -54,7 +51,7 @@ class Position:
         Args:
             posy (int): posicion columna del cuadrado.
             posx (int): posicion file del cuadrado.
-            color (tuple): color del numero.
+            color (list): color del numero.
             number (int): numero del cuadrado.
 
         """
@@ -67,7 +64,7 @@ class Position:
         self.pair = self
 
     def __repr__(self):
-        return "%s[%s]" % (repr(self.coordinate), self.number)
+        return "%s[%s]%s" % (repr(self.coordinate), self.number, self.color)
 
     def clear(self):
         """Resetea una posicion.
@@ -133,7 +130,7 @@ class Puzzle:
                 for pos_ad in pos1.adjacents:
                     if pos1 not in self.final:
                         self.final.append(pos1)
-                    if pos_ad.number == 1:
+                    if pos_ad.number == 1 and pos_ad.color == pos1.color:
                         self.candidate.append(pos1)
                         self.final.remove(pos1)
                         break
@@ -186,8 +183,10 @@ class Generator:
         ran_adjacent_position = candidate_position.adjacents.pop(
             candidate_position.adjacents.index(random.choice(candidate_position.adjacents)))
         test = [ran_adjacent_position]
-        while ran_adjacent_position.number != 1:
-            if len(candidate_position.adjacents) != 0:
+        while True:
+            if ran_adjacent_position.number == 1 and ran_adjacent_position.color == candidate_position.color:
+                break
+            elif len(candidate_position.adjacents) != 0:
                 ran_adjacent_position = candidate_position.adjacents.pop(
                     candidate_position.adjacents.index(random.choice(candidate_position.adjacents)))
                 test.append(ran_adjacent_position)
@@ -196,7 +195,8 @@ class Generator:
         candidate_position.adjacents = candidate_position.adjacents + test
         if candidate_position not in self.temporal_way:
             self.temporal_way.append(candidate_position)
-        if ran_adjacent_position.number != 1 or ran_adjacent_position in self.puzzle.final:  # no hay camino posible.
+        if ran_adjacent_position.number != 1 or ran_adjacent_position.color != candidate_position.color or\
+           ran_adjacent_position in self.puzzle.final:  # no hay camino posible.
             return False, candidate_position
         else:  # hay camino posible.
             self.temporal_way.append(ran_adjacent_position)
@@ -257,7 +257,7 @@ class Checker:
         dist = self.t.get_distance(self.t.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2:  # para el numero 2.
-                if dist != self.number:
+                if dist != self.number and root.color == adj.color:
                     self.three_check(adj, rama.add_child(name=adj), root)
             else:  # para el resto de numeros mayores que 2.
                 aux2 = False
@@ -280,14 +280,17 @@ class Checker:
         elif father.number == self.number and dist == self.number:
             aux = [a.name for a in rama.iter_ancestors() if type(a.name) is Position]
             aux.append(father)
-            if father is not root.pair and father.pair.euclides(root.pair) <= root.number - 1:
-                casea = sum(a.number == 0 and (len(a.way) == 0 or len(a.way) == self.number) for a in aux)
+            if father is not root.pair and father.pair.euclides(root.pair) <= root.number - 1 and\
+               father.color == root.color:
+                casea = sum((a.number == 0 and (len(a.way) == 0 or len(a.way) == self.number)) and
+                            a.color == root.color for a in aux)
                 if casea == self.number - 2:
                     self.case_a_aux(father.pair, self.taux.add_child(name=father.pair), root)
                     self.taux = Tree(';', format=1)
             elif father is root.pair:
                 only = sum(a in root.way for a in aux)
-                caseb = sum((a.number == 0 and (len(a.way) == 0 or len(a.way) == self.number)) for a in aux)
+                caseb = sum((a.number == 0 and (len(a.way) == 0 or (len(a.way) == self.number and
+                                                                    a.color == root.color))) for a in aux)
                 casec = None
                 if self.number > 3:
                     for a in aux:
@@ -296,7 +299,8 @@ class Checker:
                             break
                 if casec is not None:
                     for a in aux:
-                        if not (a in root.way or a in casec.way or (a.number == 0 and len(a.way) == 0)):
+                        if not (a in root.way or a in casec.way or (a.number == 0 and len(a.way) == 0) and
+                                a.color == casec.color):
                             casec = None
                             break
                 if only == self.number:
@@ -306,9 +310,9 @@ class Checker:
                             w.clear()
                             self.puzzle.candidate.append(w)
                         self.finish = True
-                        # print('error E encontrado')
+                        # print('error E encontrado', root)
                 elif caseb == self.number - 2:
-                    # print('error B encontrado')
+                    # print('error B encontrado:', root)
                     for w in root.way:
                         w.clear()
                         self.puzzle.candidate.append(w)
@@ -330,11 +334,11 @@ class Checker:
         """
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
-            if self.number == 2:  # para el numero 2.
+            if self.number == 2 and root.color == adj.color:  # para el numero 2.
                 if dist != self.number:
                     self.case_a_aux(adj, rama.add_child(name=adj), root)
             else:  # para el resto de numeros mayores que 2.
-                if father.euclides(root.pair) <= root.number - dist:
+                if father.euclides(root.pair) <= root.number - dist and adj.color == root.color:
                     if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
                                                     (adj.number == 0 and len(adj.way) == self.number)))\
                             or (dist == self.number - 1 and adj.number == self.number):
@@ -345,7 +349,7 @@ class Checker:
             rama.detach()
             return
         elif father.number == self.number and dist == self.number and father is root.pair:  # caso A.
-            # print('error A encontrado')
+            # print('error A encontrado:', root)
             for w in root.way:
                 w.clear()
                 self.puzzle.candidate.append(w)
@@ -364,7 +368,7 @@ class Checker:
         """
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
-            if father.euclides(ncasec.pair) <= ncasec.number - dist:
+            if father.euclides(ncasec.pair) <= ncasec.number - dist and adj.color == ncasec.color:
                 if (dist < ncasec.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
                                                   (adj.number == 0 and adj in root.way) or
                                                   (adj.number == 0 and adj in ncasec.way)))\
@@ -376,7 +380,7 @@ class Checker:
             rama.detach()
             return
         elif dist == ncasec.number and father is ncasec.pair:  # caso C.
-            # print('error C encontrado')
+            # print('error C encontrado:', root)
             if ncasec.number > root.number:
                 for w in root.way:
                     w.clear()
@@ -387,58 +391,6 @@ class Checker:
                     self.puzzle.candidate.append(w)
             self.finish = True
         rama.detach()
-
-
-def read_csv(fname):
-    """Lee el archivo csv pasado y construye una lista con su contenido.
-
-    Args:
-        fname (str): archivo para ser leido.
-
-    Returns:
-        Una lista con el contenido del archivo.
-
-    Raises:
-        IOError: si no puede encontrar el archivo.
-
-    """
-    try:
-        f = open(fname, 'r')
-    except IOError:
-        print("File not found", fname)
-        sys.exit()
-    ncolumns = len(f.readline().strip().split(','))  # numero de columnas.
-    f.seek(0)
-    nrows = 0
-    for _ in f.readlines():  # numero de filas.
-        nrows += 1
-    f.seek(0)
-    position_list = []
-    for posx in range(0, int(nrows)):  # creamos Posiciones y las añadimos la la lista de posiciones iniciales
-        num = f.readline().strip().split(',')
-        for posy in range(0, int(ncolumns)):
-            number = int(num.pop(0).split(',')[0])
-            position_list.append(Position(posy, posx, (0, 0, 0), number))  # columna, fila.
-    return Puzzle((nrows, ncolumns), position_list)  # creamos el Puzzle.
-
-
-def write_csv(puzzle):
-    """Escribe la tabla pasada de un Puzzle en un archivo csv. Primero debe ordenar la lista por sus coordenadas,
-
-    Args:
-        puzzle (Puzzle): Puzzle a escribir.
-
-    """
-    file = open("temp.csv", 'w')
-    ncolumn = 0
-    for pos1 in sorted(puzzle.final, key=lambda position: (position.coordinate[1], position.coordinate[0])):
-        file.write(str(pos1.number))
-        ncolumn += 1
-        if ncolumn == puzzle.size[1]:
-            file.write('\n')
-            ncolumn = 0
-        else:
-            file.write(',')
 
 
 def generate(puzz, gen):
@@ -472,8 +424,7 @@ def generate(puzz, gen):
             pos.way = gen.temporal_way.copy()
             puzz.final.append(pos)
         gen.temporal_way.clear()
-    # reseteamos aquellos que sean menores que el numero generado ya que no hace falta ver sus errores.
-    for pos1 in puzz.final:
+    for pos1 in puzz.final:  # reseteamos los menores que el numero generado ya que no hace falta ver sus errores.
         if pos1.number < gen.max_number and pos1 not in p.candidate and pos1.number != 1 and gen.max_number > len(
                 pos1.way) > 0:
             for w in pos1.way:
@@ -510,13 +461,12 @@ def found_error(i):
 
     """
     auxf = p.final  # salvar final.
-
     print('\nnumero de errores:', int(len(p.candidate)/i))
     for pos1 in p.final:  # volver a construir la lista de candidatos.
         # aquellos 1's que tengan 1's adyacentes.
         if pos1.number == 1 and pos1 not in p.candidate:
             for pos_ad in pos1.adjacents:
-                if pos_ad.number == 1:
+                if pos_ad.number == 1 and pos_ad.color == pos1.color:
                     p.candidate.append(pos1)
                     break
         # aquellos que sean menores que el numero chequeado.
@@ -528,22 +478,110 @@ def found_error(i):
             pos1.clear()
             p.candidate.append(pos1)
     [p.final.remove(pos1) for pos1 in p.candidate if pos1 in p.final]
-
     global maxe, maxf  # salvar longitud y ver si no es menor que el anterior. Si es menor restaurar final.
     if maxe is None or maxe >= len(p.candidate):
         maxe = len(p.candidate)
         maxf = auxf
     elif maxe < len(p.candidate):
         p.final = auxf
-
     print('finales: ', len(maxf), ' / ', 'candidatos: ', maxe)
     print('='*40)
+
+
+def read_csv(fname):
+    """Lee el archivo csv pasado y construye una lista con su contenido.
+
+    Args:
+        fname (str): archivo para ser leido.
+
+    Returns:
+        Una lista con el contenido del archivo.
+
+    Raises:
+        IOError: si no puede encontrar el archivo.
+
+    """
+    try:
+        f = open(fname, 'r')
+    except IOError:
+        print("File not found", fname)
+        sys.exit()
+    ncolumns = len(f.readline().strip().split(','))  # numero de columnas.
+    f.seek(0)
+    nrows = 0
+    for _ in f.readlines():  # numero de filas.
+        nrows += 1
+    f.seek(0)
+    position_list = []
+    for posx in range(0, nrows):  # creamos Posiciones y las añadimos la la lista de posiciones iniciales
+        num = f.readline().strip().split(',')
+        for posy in range(0, ncolumns):
+            number = int(num.pop(0).split(',')[0])
+            position_list.append(Position(posy, posx, [0, 0, 0], number))  # columna, fila.
+    return Puzzle((nrows, ncolumns), position_list)  # creamos el Puzzle.
+
+
+def write_csv(puzzle):
+    """Escribe la tabla pasada de un Puzzle en un archivo csv. Primero debe ordenar la lista por sus coordenadas,
+
+    Args:
+        puzzle (Puzzle): Puzzle a escribir.
+
+    """
+    file = open("temp.csv", 'w')
+    ncolumn = 0
+    for pos1 in sorted(puzzle.final, key=lambda position: (position.coordinate[1], position.coordinate[0])):
+        file.write(str(pos1.number))
+        ncolumn += 1
+        if ncolumn == puzzle.size[1]:
+            file.write('\n')
+            ncolumn = 0
+        else:
+            file.write(',')
+
+
+def read_json(fname):
+    try:
+        f = open(fname, 'r')
+    except IOError:
+        print("File not found")
+        sys.exit()
+    ncolumns = 0
+    data = json.load(f)
+    for row in range(len(data)):
+        for col in range(len(data[row])):
+            ncolumns += 1
+        break
+    nrows = len(data)
+    position_list = []
+    for posx in range(0, nrows):
+        for posy in range(0, ncolumns):
+            position_list.append(Position(posy, posx, data[posx][posy]['color'], data[posx][posy]['number']))
+    return Puzzle((nrows, ncolumns), position_list)
+
+
+def write_json(puzzle):
+    file = open("temp.json", 'w')
+    ncolumn = 0
+    row = col = []
+    for pos1 in sorted(puzzle.final, key=lambda position: (position.coordinate[1], position.coordinate[0])):
+        color = pos1.color
+        col.append({'color': {'r': color[0], 'b': color[2], 'g': color[1]}, 'number': pos1.number})
+        ncolumn += 1
+        if ncolumn == puzzle.size[1]:
+            row.append(col)
+            col = []
+            ncolumn = 0
+    json.dump(row, file)
 
 if __name__ == '__main__':
     if len(sys.argv) != 4:
         sys.stderr('Not enough params.')
         sys.exit(1)
-    p = read_csv(os.path.abspath(os.path.dirname(sys.argv[1]))+'/'+sys.argv[1].rsplit('/')[-1])
+    if sys.argv[1].rsplit('/')[-1].rsplit('.')[1] == 'csv':
+        p = read_csv(os.path.abspath(os.path.dirname(sys.argv[1]))+'/'+sys.argv[1].rsplit('/')[-1])
+    else:
+        p = read_json(os.path.abspath(os.path.dirname(sys.argv[1]))+'/'+sys.argv[1].rsplit('/')[-1])
     p.initialice()  # inicializamos las listas candidata y final y los adyacentes.
     it2 = itm = int(sys.argv[2])  # numero maximo.
     it1 = it = int(sys.argv[3])  # numero de iteraciones por numero.
@@ -569,4 +607,7 @@ if __name__ == '__main__':
         it = it1
         it2 -= 1
     p.final += p.candidate
-    write_csv(p)
+    if sys.argv[1].rsplit('/')[-1].rsplit('.')[1] == 'csv':
+        write_csv(p)
+    else:
+        write_json(p)
