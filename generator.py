@@ -33,7 +33,7 @@ maxe = None
 
 
 class Position:
-    """ Clase posicion.
+    """Clase posicion.
 
     Attributes:
         coordinate (tuple): tupla con las coordenadas de la Posicion.
@@ -76,7 +76,7 @@ class Position:
         self.pair = self
 
     def euclides(self, pos):
-        """
+        """Calcula la distancia euclidea de dos posiciones en un puzzle.
 
         Args:
             pos (Position): posicion destino.
@@ -138,6 +138,21 @@ class Puzzle:
                 self.final.append(pos1)
         print('inicializando puzzle ( candidatos', len(self.candidate), ')')
         print('='*40)
+
+    def show_stats(self):
+        """Devuelve las estadisticas de numeros en el puzzle.
+
+        Returns:
+            Diccionario con las estadisticas del puzzle final.
+
+        """
+        stats = {}
+        for pos in self.final:
+            if str(pos.number) in stats:
+                stats[str(pos.number)] = stats.get(str(pos.number)) + 1
+            else:
+                stats[str(pos.number)] = 1
+        return stats
 
 
 class Generator:
@@ -629,6 +644,7 @@ if __name__ == '__main__':
         it = it1
         it2 -= 1
     p.final += p.candidate
+    print('stats:', p.show_stats())
     if sys.argv[1].rsplit('/')[-1].rsplit('.')[1] == 'csv':
         write_csv(p)
     else:
