@@ -43,6 +43,7 @@ class Position:
         adjacents (list): lista de Posiciones adyacentes.
         ini (bool): indica si es el inicio del camino.
         pair (Position): Posicion pareja.
+        new (bool): indica si ha sido generado nuevamente.
 
     """
     def __init__(self, posy, posx, color, number):
@@ -62,6 +63,7 @@ class Position:
         self.adjacents = []
         self.ini = False
         self.pair = self
+        self.new = True
 
     def __repr__(self):
         return "%s[%s]%s" % (repr(self.coordinate), self.number, self.color)
@@ -74,6 +76,7 @@ class Position:
         self.ini = False
         self.way = []
         self.pair = self
+        self.new = True
 
     def euclides(self, pos):
         """Calcula la distancia euclidea de dos posiciones en un puzzle.
@@ -460,7 +463,7 @@ def check(puzz, chec):
     for pos1 in puzz.final:
         aux += 1
         print('progreso:', aux, 'de', len(puzz.final), ' '*40, end='\r')
-        if pos1.number == chec.number and pos1.ini:
+        if pos1.number == chec.number and pos1.ini and pos1.new:
             # print('generando arbol')
             chec.three_check(pos1, chec.t.add_child(name=pos1), pos1)
             chec.casee = 0
@@ -637,6 +640,8 @@ if __name__ == '__main__':
                     c = Checker(p, it3)
                     check(p, c)
             found_error(it2)
+            for neu in p.final:
+                neu.new = False
             if len(p.candidate) == 0:
                 it2 = 0
                 break
