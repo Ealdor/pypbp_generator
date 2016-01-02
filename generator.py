@@ -238,14 +238,13 @@ class Checker:
                 |       |                                   |   |             |
                 3   0   3                       7---*---*---*   7   1         2   2---2
 
-        Caso A: Si usando ceros suyos o ceros de otro (de la misma longitud) o ceros sin nada, es posible llegar a un
-        numero igual que el suyo sin ser su pareja Y desde la pareja del nuevo es posible llegar a la pareja del
-        primero usando ceros suyos o ceros de otros (de la misma longitud) o ceros sin nada.
-        Caso B: Si usando ceros sin nada, es posible llegar a la misma pareja.
-        Caso C: Si usando ceros suyos o ceros de otro (siempre del mismo) o ceros sin nada, es posible llegar al menos
-        2 veces a su pareja Y el otro usando ceros del suyo, ceros del primero o ceros es posible llegar al menos
-        dos veces a su pareja.
-        Caso D: Si es posible formar un camino cerrado usando parejas.
+        Caso A: Si usando ceros de la misma longitud y color o ceros sin nada, es posible llegar a un numero igual que
+        el suyo y del mismo color sin ser su pareja Y desde la pareja del nuevo es posible llegar a la pareja del
+        primero usando ceros de la misma longitud y color o ceros sin nada.
+        Caso B: Si usando ceros sin nada o ceros suyos, es posible llegar a la misma pareja. Descartar su propio camino.
+        Caso C: Si usando ceros suyos o ceros de otro (siempre del mismo) o ceros sin nada, es posible llegar a su
+        pareja Y el otro usando ceros del suyo, ceros del primero o ceros sin nada es posible llegar a a su pareja.
+        Caso D: Si es posible formar un camino cerrado usando parejas. Descartar su propio camino.
         Caso E: Si usando ceros suyos es posible llegar a su pareja al menos dos veces.
 
         Args:
@@ -282,15 +281,14 @@ class Checker:
             aux.append(father)
             if father is not root.pair and father.pair.euclides(root.pair) <= root.number - 1 and\
                father.color == root.color:
-                casea = sum((a.number == 0 and (len(a.way) == 0 or len(a.way) == self.number)) and
-                            a.color == root.color for a in aux)
+                casea = sum((a.number == 0 and (len(a.way) == 0 or (len(a.way) == self.number and
+                                                                    a.color == root.color))) for a in aux)
                 if casea == self.number - 2:
                     self.case_a_aux(father.pair, self.taux.add_child(name=father.pair), root)
                     self.taux = Tree(';', format=1)
             elif father is root.pair:
                 only = sum(a in root.way for a in aux)
-                caseb = sum((a.number == 0 and (len(a.way) == 0 or (len(a.way) == self.number and
-                                                                    a.color == root.color))) for a in aux)
+                caseb = sum((a.number == 0 and (len(a.way) == 0 or a in root.way)) for a in aux)
                 casec = None
                 if self.number > 3:
                     for a in aux:
@@ -299,8 +297,7 @@ class Checker:
                             break
                 if casec is not None:
                     for a in aux:
-                        if not (a in root.way or a in casec.way or (a.number == 0 and len(a.way) == 0) and
-                                a.color == casec.color):
+                        if not (a in root.way or a in casec.way or (a.number == 0 and len(a.way) == 0)):
                             casec = None
                             break
                 if only == self.number:
@@ -338,7 +335,7 @@ class Checker:
                 if dist != self.number:
                     self.case_a_aux(adj, rama.add_child(name=adj), root)
             else:
-                if father.euclides(root.pair) <= root.number - dist and adj.color == root.color:
+                if father.euclides(root.pair) <= root.number - dist:
                     if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
                                                     (adj.number == 0 and len(adj.way) == self.number)))\
                             or (dist == self.number - 1 and adj.number == self.number):
@@ -348,7 +345,7 @@ class Checker:
         if self.finish:
             rama.detach()
             return
-        elif father.number == self.number and dist == self.number and father is root.pair:
+        elif father.number == self.number and dist == self.number and father is root.pair and father.color == root.color:
             # print('error A encontrado:', root)
             for w in root.way:
                 w.clear()
@@ -368,7 +365,7 @@ class Checker:
         """
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
-            if father.euclides(ncasec.pair) <= ncasec.number - dist and adj.color == ncasec.color:
+            if father.euclides(ncasec.pair) <= ncasec.number - dist:
                 if (dist < ncasec.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
                                                   (adj.number == 0 and adj in root.way) or
                                                   (adj.number == 0 and adj in ncasec.way)))\
@@ -380,16 +377,19 @@ class Checker:
             rama.detach()
             return
         elif dist == ncasec.number and father is ncasec.pair:
-            # print('error C encontrado:', root)
-            if ncasec.number > root.number:
-                for w in root.way:
-                    w.clear()
-                    self.puzzle.candidate.append(w)
-            else:
-                for w in ncasec.way:
-                    w.clear()
-                    self.puzzle.candidate.append(w)
-            self.finish = True
+            aux = [a.name for a in rama.iter_ancestors() if type(a.name) is Position]
+            only = sum(a in ncasec.way for a in aux)
+            if not only == ncasec.number:
+                # print('error C encontrado:', root)
+                if ncasec.number > root.number:
+                    for w in root.way:
+                        w.clear()
+                        self.puzzle.candidate.append(w)
+                else:
+                    for w in ncasec.way:
+                        w.clear()
+                        self.puzzle.candidate.append(w)
+                self.finish = True
         rama.detach()
 
 
@@ -517,7 +517,10 @@ def read_csv(fname):
         num = f.readline().strip().split(',')
         for posy in range(0, ncolumns):
             number = int(num.pop(0).split(',')[0])
-            position_list.append(Position(posy, posx, [0, 0, 0], number))  # columna, fila.
+            if number == 1:
+                position_list.append(Position(posy, posx, [0, 0, 0], number))  # columna, fila.
+            else:
+                position_list.append(Position(posy, posx, [255, 255, 255], number))  # columna, fila.
     return Puzzle((nrows, ncolumns), position_list)  # creamos el Puzzle.
 
 
@@ -541,6 +544,18 @@ def write_csv(puzzle):
 
 
 def read_json(fname):
+    """Lee el archivo json pasado y construye una lista con su contenido.
+
+    Args:
+        fname (str): archivo para ser leido.
+
+    Returns:
+        Una lista con el contenido del archivo.
+
+    Raises:
+        IOError: si no puede encontrar el archivo.
+
+    """
     try:
         f = open(fname, 'r')
     except IOError:
@@ -561,6 +576,12 @@ def read_json(fname):
 
 
 def write_json(puzzle):
+    """Escribe la tabla pasada de un Puzzle en un archivo json. Primero debe ordenar la lista por sus coordenadas,
+
+    Args:
+        puzzle (Puzzle): Puzzle a escribir.
+
+    """
     file = open("temp.json", 'w')
     ncolumn = 0
     row = []
