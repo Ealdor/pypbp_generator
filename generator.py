@@ -224,7 +224,7 @@ class Generator:
 
 
 class Checker:
-    """Clase para comprobar la validez del puzzle. Condiciones:
+    """Clase para comprobar la validez del puzzle.
 
     Attributes:
         puzzle (Puzzle): Puzzle sobre el que comprobar la validez.
@@ -325,9 +325,9 @@ class Checker:
                             w.clear()
                             self.puzzle.candidate.append(w)
                         self.finish = True
-                        # print('error E encontrado', root)
+                        print('error E encontrado', root)
                 elif caseb == self.number - 2:
-                    # print('error B encontrado:', root)
+                    print('error B encontrado:', root)
                     for w in root.way:
                         w.clear()
                         self.puzzle.candidate.append(w)
@@ -363,8 +363,9 @@ class Checker:
         if self.finish:
             rama.detach()
             return
-        elif father.number == self.number and dist == self.number and father is root.pair and father.color == root.color:
-            # print('error A encontrado:', root)
+        elif father.number == self.number and dist == self.number and \
+                father is root.pair and father.color == root.color:
+            print('error A encontrado:', root)
             for w in root.way:
                 w.clear()
                 self.puzzle.candidate.append(w)
@@ -398,7 +399,7 @@ class Checker:
             aux = [a.name for a in rama.iter_ancestors() if type(a.name) is Position]
             only = sum(a in ncasec.way for a in aux)
             if not only == ncasec.number:
-                # print('error C encontrado:', root)
+                print('error C encontrado:', root)
                 if ncasec.number > root.number:
                     for w in root.way:
                         w.clear()
@@ -535,7 +536,7 @@ def read_csv(fname):
         num = f.readline().strip().split(',')
         for posy in range(0, ncolumns):
             number = int(num.pop(0).split(',')[0])
-            if number == 1:
+            if number >= 1:
                 position_list.append(Position(posy, posx, [0, 0, 0], number))  # columna, fila.
             else:
                 position_list.append(Position(posy, posx, [255, 255, 255], number))  # columna, fila.
@@ -630,15 +631,9 @@ if __name__ == '__main__':
             print('numero:', it2, '- iteracion:', it1 + 1 - it, 'de', it1)
             g = Generator(p, it2)  # creamos el generador.
             generate(p, g)  # generamos el puzzle.
-            if it2 == 2:
-                print('buscando errores del numero:', it2)
-                c = Checker(p, it2)  # creamos el comprobador.
-                check(p, c)  # comprobamos.
-            else:
-                for it3 in range(it2, itm + 1):  # errores por cada uno de los numeros entre el maximo y el generado.
-                    print('buscando errores del numero:', it3)
-                    c = Checker(p, it3)
-                    check(p, c)
+            print('buscando errores del numero:', it2)
+            c = Checker(p, it2)
+            check(p, c)
             found_error(it2)
             for neu in p.final:
                 neu.new = False
