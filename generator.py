@@ -167,17 +167,44 @@ class Generator:
         max_number (int): Numero maximo que tendra el Puzzle.
 
     """
-    def __init__(self, puzzle, max_number):
+    def __init__(self, puzzle, max_number, speed=0, nspeed=2):
         """Clase para generar el puzzle a partir de un Puzzle.
 
         Args:
             puzzle (Puzzle): Puzzle sobre el que generar el puzzle.
             max_number (int): Numero maximo que tendra el Puzzle.
+            speed (int): Nivel de velocidad (0:muy lento; 1:lento; 2:normal; 3:rapido; 4:muy rapido).
+            nspeed (int): Numero hasta el que se le aplicara la velocidad (speed).
 
         """
         self.puzzle = puzzle
         self.temporal_way = []
         self.max_number = max_number
+        s = 2
+        if nspeed >= 2:
+            s = nspeed
+        if max_number <= s:
+            self.speed = max_number
+            self.sspeed = 'muy lenta'
+        else:
+            if speed == 1:
+                self.speed = max_number
+                self.sspeed = 'muy lenta'
+            elif speed == 2:
+                self.speed = max_number - (max_number / 3)
+                self.sspeed = 'lenta'
+            elif speed == 3:
+                self.speed = max_number / 2
+                self.sspeed = 'normal'
+            elif speed == 4:
+                self.speed = max_number / 3
+                self.sspeed = 'rapida'
+            elif speed == 5:
+                self.speed = 0
+                self.sspeed = 'muy rapida'
+            else:
+                self.speed = max_number
+                self.sspeed = 'muy lenta'
 
     def step_one(self):
         """Elegir posición aleatoria de la tabla de candidatos y eliminarlo de ella.
@@ -325,9 +352,9 @@ class Checker:
                             w.clear()
                             self.puzzle.candidate.append(w)
                         self.finish = True
-                        print('error E encontrado', root)
+                        # print('error E encontrado', root)
                 elif caseb == self.number - 2:
-                    print('error B encontrado:', root)
+                    # print('error B encontrado:', root)
                     for w in root.way:
                         w.clear()
                         self.puzzle.candidate.append(w)
@@ -365,7 +392,7 @@ class Checker:
             return
         elif father.number == self.number and dist == self.number and \
                 father is root.pair and father.color == root.color:
-            print('error A encontrado:', root)
+            # print('error A encontrado:', root)
             for w in root.way:
                 w.clear()
                 self.puzzle.candidate.append(w)
@@ -399,7 +426,7 @@ class Checker:
             aux = [a.name for a in rama.iter_ancestors() if type(a.name) is Position]
             only = sum(a in ncasec.way for a in aux)
             if not only == ncasec.number:
-                print('error C encontrado:', root)
+                # print('error C encontrado:', root)
                 if ncasec.number > root.number:
                     for w in root.way:
                         w.clear()
@@ -420,7 +447,7 @@ def generate(puzz, gen):
         gen (Generator): Generador a usar.
 
     """
-    print('generando puzzle')
+    print('generando puzzle ( velocidad', gen.sspeed, ')')
     while len(puzz.candidate) > 0:  # generamos el puzzle mientras haya candidatos.
         candidate = gen.step_one()
         adjacent, candidate = gen.step_two(candidate)
@@ -447,9 +474,14 @@ def generate(puzz, gen):
         if pos1.number < gen.max_number and pos1 not in p.candidate and pos1.number != 1 and gen.max_number > len(
                 pos1.way) > 0:
             for w in pos1.way:
-                if w is not pos1:
-                    w.clear()
-            pos1.clear()
+                w.clear()
+        elif pos1.number == gen.max_number:  # opciones de velocidad.
+            for pa in puzz.final:
+                if pa.euclides(pos1) <= gen.max_number - gen.speed and \
+                                pa is not pos1 and pa is not pos1.pair and \
+                                pa.number == pos1.number and pa.color == pos1.color:
+                    for w in pa.way:
+                        w.clear()
 
 
 def check(puzz, chec):
@@ -616,7 +648,7 @@ def write_json(puzzle):
     json.dump(row, file)
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 6:
         sys.stderr('Not enough params.')
         sys.exit(1)
     if sys.argv[1].rsplit('/')[-1].rsplit('.')[1] == 'csv':
@@ -629,9 +661,9 @@ if __name__ == '__main__':
     while it2 > 1:
         while it > 0:
             print('numero:', it2, '- iteracion:', it1 + 1 - it, 'de', it1)
-            g = Generator(p, it2)  # creamos el generador.
+            g = Generator(p, it2, int(sys.argv[4]), int(sys.argv[5]))  # creamos el generador.
             generate(p, g)  # generamos el puzzle.
-            print('buscando errores del numero:', it2)
+            print('buscando errores')
             c = Checker(p, it2)
             check(p, c)
             found_error(it2)
