@@ -14,6 +14,10 @@ Command line interface
 * speed_number: number till argument speed is applied (recommended is 10 - 15).
 * returns: a file *temp.csv* or *temp.json* with the generated puzzle.
 
+or
+
+> **python gui.py**
+
 More iterations means more complexity but can take more time to generate the puzzle (a good value is between 1 and 5). 
  There is no cap for the maximun number but if you use a number greater than 15 it can take a lot of time to  produce 
  the puzzle and is recommended to use a fast speed argument (depending on the puzzle size too).

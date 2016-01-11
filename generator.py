@@ -23,13 +23,15 @@ import random
 import math
 import json
 from ete3 import Tree
-try:
-    import timing
-except ImportError:
-    pass
+from timeit import default_timer as timer
+from datetime import timedelta
 
 maxf = []
 maxe = None
+start = timer()
+
+candi = errores = num = types = status = cancel = totaltime = None
+cancelar = False
 
 
 class Position:
@@ -121,26 +123,34 @@ class Puzzle:
         inicializa la lista de posiciones candidatas con el resto.
 
         """
+        global status, cancel, cancelar
         print('inicializando puzzle', end='\r')
+        if status is not None:
+            status.set("Estado: Inicializando puzzle ...")
+            cancel.update()
         for pos1 in self.initial:
-            for pos2 in self.initial:  # añadimos las Posiciones adyacentes a las Posiciones del Puzzle.
-                if pos2.coordinate in [(pos1.coordinate[0] + 1, pos1.coordinate[1]),
-                                       (pos1.coordinate[0] - 1, pos1.coordinate[1]),
-                                       (pos1.coordinate[0], pos1.coordinate[1] + 1),
-                                       (pos1.coordinate[0], pos1.coordinate[1] - 1)]:
-                    pos1.adjacents.append(pos2)
-            if pos1.number == 1:
-                for pos_ad in pos1.adjacents:
-                    if pos1 not in self.final:
-                        self.final.append(pos1)
-                    if pos_ad.number == 1 and pos_ad.color == pos1.color:
-                        self.candidate.append(pos1)
-                        self.final.remove(pos1)
-                        break
-            else:
-                self.final.append(pos1)
+            if cancel is not None:
+                cancel.update()
+            if not cancelar:
+                for pos2 in self.initial:  # añadimos las Posiciones adyacentes a las Posiciones del Puzzle.
+                    if pos2.coordinate in [(pos1.coordinate[0] + 1, pos1.coordinate[1]),
+                                           (pos1.coordinate[0] - 1, pos1.coordinate[1]),
+                                           (pos1.coordinate[0], pos1.coordinate[1] + 1),
+                                           (pos1.coordinate[0], pos1.coordinate[1] - 1)] and not cancelar:
+                        pos1.adjacents.append(pos2)
+                if pos1.number == 1:
+                    for pos_ad in pos1.adjacents:
+                        if pos1 not in self.final:
+                            self.final.append(pos1)
+                        if pos_ad.number == 1 and pos_ad.color == pos1.color:
+                            self.candidate.append(pos1)
+                            self.final.remove(pos1)
+                            break
+                else:
+                    self.final.append(pos1)
         print('inicializando puzzle ( candidatos', len(self.candidate), ')')
-        print('='*40)
+        mid = timer()
+        print('='*40, seconds_to_str(mid - start))
 
     def show_stats(self):
         """Devuelve las estadisticas de numeros en el puzzle.
@@ -165,6 +175,7 @@ class Generator:
         puzzle (Puzzle): Puzzle sobre el que generar el puzzle.
         temporal_way (list): Lista temporal para guardar el camino.
         max_number (int): Numero maximo que tendra el Puzzle.
+        speed (int): Nivel de velocidad (0:muy lento; 1:lento; 2:normal; 3:rapido; 4:muy rapido).
 
     """
     def __init__(self, puzzle, max_number, speed=0, nspeed=2):
@@ -225,10 +236,13 @@ class Generator:
             Booleano indicando si hay camino posible o la nueva posicion y el candidato sobre el que se hizo el camino.
 
         """
+        global cancel, cancelar
         ran_adjacent_position = candidate_position.adjacents.pop(
             candidate_position.adjacents.index(random.choice(candidate_position.adjacents)))
         test = [ran_adjacent_position]
-        while True:
+        while not cancelar:
+            if cancel is not None:
+                cancel.update()
             if ran_adjacent_position.number == 1 and ran_adjacent_position.color == candidate_position.color:
                 break
             elif len(candidate_position.adjacents) != 0:
@@ -298,6 +312,9 @@ class Checker:
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         """
+        global cancel, cancelar
+        if cancel is not None:
+            cancel.update()
         dist = self.t.get_distance(self.t.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2:
@@ -317,9 +334,9 @@ class Checker:
                                                (adj.number == 0 and len(adj.way) == self.number))) or
                        (dist == self.number - 1 and adj.number == self.number)):
                         aux = [a.name for a in rama.iter_ancestors()]
-                        if adj not in aux:  # para que no vuelva sobre si mismo.
+                        if adj not in aux and not cancelar:  # para que no vuelva sobre si mismo.
                             self.three_check(adj, rama.add_child(name=adj), root)
-        if self.finish:
+        if self.finish or cancelar:
             return
         elif father.number == self.number and dist == self.number:
             aux = [a.name for a in rama.iter_ancestors() if type(a.name) is Position]
@@ -374,6 +391,9 @@ class Checker:
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         """
+        global cancel, cancelar
+        if cancel is not None:
+            cancel.update()
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2 and root.color == adj.color:
@@ -385,9 +405,9 @@ class Checker:
                                                     (adj.number == 0 and len(adj.way) == self.number)))\
                             or (dist == self.number - 1 and adj.number == self.number):
                         aux = [a.name for a in rama.iter_ancestors()]
-                        if adj not in aux:  # para que no vuelva sobre si mismo.
+                        if adj not in aux and not cancelar:  # para que no vuelva sobre si mismo.
                             self.case_a_aux(adj, rama.add_child(name=adj), root)
-        if self.finish:
+        if self.finish or cancelar:
             rama.detach()
             return
         elif father.number == self.number and dist == self.number and \
@@ -409,6 +429,9 @@ class Checker:
             ncasec (Position): posicion del caso c (auxiliar).
 
         """
+        global cancel, cancelar
+        if cancel is not None:
+            cancel.update()
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
             if father.euclides(ncasec.pair) <= ncasec.number - dist:
@@ -417,9 +440,9 @@ class Checker:
                                                   (adj.number == 0 and adj in ncasec.way)))\
                         or (dist == ncasec.number - 1 and adj.number == ncasec.number):
                     aux = [a.name for a in rama.iter_ancestors()]
-                    if adj not in aux:  # para que no vuelva sobre si mismo.
+                    if adj not in aux and not cancelar:  # para que no vuelva sobre si mismo.
                         self.case_c_aux(adj, rama.add_child(name=adj), root, ncasec)
-        if self.finish:
+        if self.finish or cancelar:
             rama.detach()
             return
         elif dist == ncasec.number and father is ncasec.pair:
@@ -447,11 +470,19 @@ def generate(puzz, gen):
         gen (Generator): Generador a usar.
 
     """
+    global status, cancel, cancelar
     print('generando puzzle ( velocidad', gen.sspeed, ')')
-    while len(puzz.candidate) > 0:  # generamos el puzzle mientras haya candidatos.
+    if status is not None:
+        status.set("Estado: Generando puzzle (velocidad " + gen.sspeed + ') ...')
+        cancel.update()
+    while len(puzz.candidate) > 0 and not cancelar:  # generamos el puzzle mientras haya candidatos.
+        if cancel is not None:
+            cancel.update()
         candidate = gen.step_one()
         adjacent, candidate = gen.step_two(candidate)
-        while adjacent:
+        while adjacent and not cancelar:
+            if cancel is not None:
+                cancel.update()
             puzz.candidate.remove(adjacent)
             if len(gen.temporal_way) < gen.max_number:
                 adjacent, candidate = gen.step_two(adjacent)
@@ -471,14 +502,13 @@ def generate(puzz, gen):
             puzz.final.append(pos)
         gen.temporal_way.clear()
     for pos1 in puzz.final:  # reseteamos los menores que el numero generado ya que no hace falta ver sus errores.
-        if pos1.number < gen.max_number and pos1 not in p.candidate and pos1.number != 1 and gen.max_number > len(
+        if pos1.number < gen.max_number and pos1 not in puzz.candidate and pos1.number != 1 and gen.max_number > len(
                 pos1.way) > 0:
             for w in pos1.way:
                 w.clear()
         elif pos1.number == gen.max_number:  # opciones de velocidad.
             for pa in puzz.final:
-                if pa.euclides(pos1) <= gen.max_number - gen.speed and \
-                                pa is not pos1 and pa is not pos1.pair and \
+                if pa.euclides(pos1) <= gen.max_number - gen.speed and pa is not pos1 and pa is not pos1.pair and \
                                 pa.number == pos1.number and pa.color == pos1.color:
                     for w in pa.way:
                         w.clear()
@@ -492,11 +522,15 @@ def check(puzz, chec):
         chec (Checker): Comprobador a usar.
 
     """
+    global cancel, types, cancelar
     aux = 0
     for pos1 in puzz.final:
         aux += 1
         print('progreso:', aux, 'de', len(puzz.final), ' '*40, end='\r')
-        if pos1.number == chec.number and pos1.ini and pos1.new:
+        if types is not None:
+            types.set("Progreso: " + str(aux) + ' de ' + str(len(puzz.final)))
+            cancel.update()
+        if pos1.number == chec.number and pos1.ini and pos1.new and not cancelar:
             # print('generando arbol')
             chec.three_check(pos1, chec.t.add_child(name=pos1), pos1)
             chec.casee = 0
@@ -504,39 +538,47 @@ def check(puzz, chec):
             chec.finish = False
 
 
-def found_error(i):
+def found_error(puzz, i):
     """Funcion para reconstruir la lista de candidatos a partir de los errores.
 
         Args:
+            puzz (Puzzle): Puzzle a comprobar.
             i (int): numero analizado.
-
     """
-    auxf = p.final  # salvar final.
-    print('\nnumero de errores:', int(len(p.candidate)/i))
-    for pos1 in p.final:  # volver a construir la lista de candidatos.
+    global candi, cancel, errores, start
+    auxf = puzz.final  # salvar final.
+    print('\nnumero de errores:', int(len(puzz.candidate)/i))
+    if errores is not None:
+        errores.set("Número de errores: " + str(int(len(puzz.candidate)/i)))
+    for pos1 in puzz.final:  # volver a construir la lista de candidatos.
         # aquellos 1's que tengan 1's adyacentes.
-        if pos1.number == 1 and pos1 not in p.candidate:
+        if pos1.number == 1 and pos1 not in puzz.candidate:
             for pos_ad in pos1.adjacents:
                 if pos_ad.number == 1 and pos_ad.color == pos1.color:
-                    p.candidate.append(pos1)
+                    puzz.candidate.append(pos1)
                     break
         # aquellos que sean menores que el numero chequeado.
-        elif pos1.number < i and pos1 not in p.candidate and pos1.number != 1 and i > len(pos1.way) > 0:
+        elif pos1.number < i and pos1 not in puzz.candidate and pos1.number != 1 and i > len(pos1.way) > 0:
             for w in pos1.way:
                 if w is not pos1:
                     w.clear()
-                    p.candidate.append(w)
+                    puzz.candidate.append(w)
             pos1.clear()
-            p.candidate.append(pos1)
-    [p.final.remove(pos1) for pos1 in p.candidate if pos1 in p.final]
+            puzz.candidate.append(pos1)
+    [puzz.final.remove(pos1) for pos1 in puzz.candidate if pos1 in puzz.final]
     global maxe, maxf  # salvar longitud y ver si no es menor que el anterior. Si es menor restaurar final.
-    if maxe is None or maxe >= len(p.candidate):
-        maxe = len(p.candidate)
+    if maxe is None or maxe >= len(puzz.candidate):
+        maxe = len(puzz.candidate)
         maxf = auxf
-    elif maxe < len(p.candidate):
-        p.final = auxf
+    elif maxe < len(puzz.candidate):
+        puzz.final = auxf
     print('finales: ', len(maxf), ' / ', 'candidatos: ', maxe)
-    print('='*40)
+    mid = timer()
+    print('='*40, seconds_to_str(mid - start))
+    if candi is not None:
+        candi.set("Finales / Candidatos: " + str(len(maxf)) + ' / ' + str(maxe))
+        totaltime.set("Tiempo total: " + seconds_to_str(mid - start))
+        cancel.update()
 
 
 def read_csv(fname):
@@ -565,9 +607,9 @@ def read_csv(fname):
     f.seek(0)
     position_list = []
     for posx in range(0, nrows):  # creamos Posiciones y las añadimos la la lista de posiciones iniciales
-        num = f.readline().strip().split(',')
+        numi = f.readline().strip().split(',')
         for posy in range(0, ncolumns):
-            number = int(num.pop(0).split(',')[0])
+            number = int(numi.pop(0).split(',')[0])
             if number >= 1:
                 position_list.append(Position(posy, posx, [0, 0, 0], number))  # columna, fila.
             else:
@@ -647,26 +689,35 @@ def write_json(puzzle):
             ncolumn = 0
     json.dump(row, file)
 
-if __name__ == '__main__':
-    if len(sys.argv) != 6:
-        sys.stderr('Not enough params.')
-        sys.exit(1)
-    if sys.argv[1].rsplit('/')[-1].rsplit('.')[1] == 'csv':
-        p = read_csv(os.path.abspath(os.path.dirname(sys.argv[1]))+'/'+sys.argv[1].rsplit('/')[-1])
+
+def seconds_to_str(t):
+    return str(timedelta(seconds=t))
+
+
+def main(arg1, arg2, arg3, arg4, arg5):
+    global num, cancel, status, cancelar, totaltime, start
+    if arg1.rsplit('/')[-1].rsplit('.')[1] == 'csv':
+        p = read_csv(os.path.abspath(os.path.dirname(arg1))+'/'+arg1.rsplit('/')[-1])
     else:
-        p = read_json(os.path.abspath(os.path.dirname(sys.argv[1]))+'/'+sys.argv[1].rsplit('/')[-1])
+        p = read_json(os.path.abspath(os.path.dirname(arg1))+'/'+arg1.rsplit('/')[-1])
     p.initialice()  # inicializamos las listas candidata y final y los adyacentes.
-    it2 = itm = int(sys.argv[2])  # numero maximo.
-    it1 = it = int(sys.argv[3])  # numero de iteraciones por numero.
+    it2 = int(arg2)  # numero maximo.
+    it1 = it = int(arg3)  # numero de iteraciones por numero.
     while it2 > 1:
-        while it > 0:
+        while it > 0 and not cancelar:
             print('numero:', it2, '- iteracion:', it1 + 1 - it, 'de', it1)
-            g = Generator(p, it2, int(sys.argv[4]), int(sys.argv[5]))  # creamos el generador.
+            if num is not None:
+                num.set("Número / Iteración: " + str(it2) + ' / ' + str(it1 + 1 - it) + ' de ' + str(it1))
+                cancel.update()
+            g = Generator(p, it2, int(arg4), int(arg5))  # creamos el generador.
             generate(p, g)  # generamos el puzzle.
             print('buscando errores')
+            if status is not None:
+                status.set("Estado: Buscando errores ...")
+                cancel.update()
             c = Checker(p, it2)
             check(p, c)
-            found_error(it2)
+            found_error(p, it2)
             for neu in p.final:
                 neu.new = False
             if len(p.candidate) == 0:
@@ -677,7 +728,18 @@ if __name__ == '__main__':
         it2 -= 1
     p.final += p.candidate
     print('stats:', p.show_stats())
-    if sys.argv[1].rsplit('/')[-1].rsplit('.')[1] == 'csv':
+    if arg1.rsplit('/')[-1].rsplit('.')[1] == 'csv':
         write_csv(p)
     else:
         write_json(p)
+    end = timer()
+    print('='*40, seconds_to_str(end - start))
+    if totaltime is not None:
+        totaltime.set("Tiempo total: " + seconds_to_str(end - start))
+    start = timer()
+
+if __name__ == '__main__':
+    if len(sys.argv) != 6:
+        sys.stderr('Not enough params.')
+        sys.exit(1)
+    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
