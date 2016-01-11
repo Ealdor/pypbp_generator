@@ -50,6 +50,11 @@ class Application(tk.Frame):
          self.types_label, self.quit_button, self.speed, self.speed_spinbox, self.hasta_spinbox,
          self.hasta_label) = self.create_widgets()
 
+    def test(self):
+        texti = 'Hasta el número (1 - ' + self.maxnumber_spinbox.get() + '):'
+        self.hasta_label.config(text=texti)
+        self.hasta_spinbox.config(from_=1, to_=self.maxnumber_spinbox.get())
+
     def create_widgets(self):
         # Label instrucción
         instruction_label = tk.Label(self, text="Para generar un nuevo puzzle, selecciona 'Examinar ficheros y eli"
@@ -74,7 +79,7 @@ class Application(tk.Frame):
         maxnumber_label = tk.Label(browse_label, text="Número máximo (2 - 99):")
         maxnumber_label.grid(sticky=tk.SW, padx=0, column=0, row=1, pady=10)
         # Spinbox maxnumber
-        maxnumber_spinbox = tk.Spinbox(browse_label, from_=2, to_=99, wrap=True, width=2, state='readonly')
+        maxnumber_spinbox = tk.Spinbox(browse_label, from_=2, to_=99, wrap=True, width=2, state='readonly', command=self.test)
         maxnumber_spinbox.grid(sticky=tk.SE, padx=0, column=1, row=1, pady=10)
         # Label complejidad
         complex_label = tk.Label(browse_label, text="Iteraciones (1 - 999):")
@@ -89,10 +94,10 @@ class Application(tk.Frame):
         speed_spinbox = tk.Spinbox(browse_label, from_=1, to_=5, wrap=True, width=1, state='readonly')
         speed_spinbox.grid(sticky=tk.NE, padx=0, column=1, row=3, pady=10)
         # Label hasta
-        hasta_label = tk.Label(browse_label, text="Hasta el número (2 - 99):")
+        hasta_label = tk.Label(browse_label, text="Hasta el número (1 - 2):")
         hasta_label.grid(sticky=tk.NW, padx=0, column=0, row=4, pady=0)
         # Spinbox hasta
-        hasta_spinbox = tk.Spinbox(browse_label, from_=2, to_=99, wrap=True, width=2, state='readonly')
+        hasta_spinbox = tk.Spinbox(browse_label, from_=1, to_=2, wrap=True, width=2, state='readonly')
         hasta_spinbox.grid(sticky=tk.NE, padx=0, column=1, row=4, pady=0)
 
         # Frame generacion
