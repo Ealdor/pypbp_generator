@@ -16,7 +16,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
-
+import argparse
+import shutil
 import sys
 import os
 import random
@@ -29,9 +30,6 @@ from datetime import timedelta
 maxf = []
 maxe = None
 start = timer()
-
-candi = errores = num = types = status = cancel = totaltime = None
-cancelar = False
 
 
 class Position:
@@ -123,31 +121,24 @@ class Puzzle:
         inicializa la lista de posiciones candidatas con el resto.
 
         """
-        global status, cancel, cancelar
         print('inicializando puzzle', end='\r')
-        if status is not None:
-            status.set("Estado: Inicializando puzzle ...")
-            cancel.update()
         for pos1 in self.initial:
-            if cancel is not None:
-                cancel.update()
-            if not cancelar:
-                for pos2 in self.initial:  # añadimos las Posiciones adyacentes a las Posiciones del Puzzle.
-                    if pos2.coordinate in [(pos1.coordinate[0] + 1, pos1.coordinate[1]),
-                                           (pos1.coordinate[0] - 1, pos1.coordinate[1]),
-                                           (pos1.coordinate[0], pos1.coordinate[1] + 1),
-                                           (pos1.coordinate[0], pos1.coordinate[1] - 1)] and not cancelar:
-                        pos1.adjacents.append(pos2)
-                if pos1.number == 1:
-                    for pos_ad in pos1.adjacents:
-                        if pos1 not in self.final:
-                            self.final.append(pos1)
-                        if pos_ad.number == 1 and pos_ad.color == pos1.color:
-                            self.candidate.append(pos1)
-                            self.final.remove(pos1)
-                            break
-                else:
-                    self.final.append(pos1)
+            for pos2 in self.initial:  # añadimos las Posiciones adyacentes a las Posiciones del Puzzle.
+                if pos2.coordinate in [(pos1.coordinate[0] + 1, pos1.coordinate[1]),
+                                       (pos1.coordinate[0] - 1, pos1.coordinate[1]),
+                                       (pos1.coordinate[0], pos1.coordinate[1] + 1),
+                                       (pos1.coordinate[0], pos1.coordinate[1] - 1)]:
+                    pos1.adjacents.append(pos2)
+            if pos1.number == 1:
+                for pos_ad in pos1.adjacents:
+                    if pos1 not in self.final:
+                        self.final.append(pos1)
+                    if pos_ad.number == 1 and pos_ad.color == pos1.color:
+                        self.candidate.append(pos1)
+                        self.final.remove(pos1)
+                        break
+            else:
+                self.final.append(pos1)
         print('inicializando puzzle ( candidatos', len(self.candidate), ')')
         mid = timer()
         print('='*40, seconds_to_str(mid - start))
@@ -236,21 +227,14 @@ class Generator:
             Booleano indicando si hay camino posible o la nueva posicion y el candidato sobre el que se hizo el camino.
 
         """
-        global cancel, cancelar
         ran_adjacent_position = candidate_position.adjacents.pop(
             candidate_position.adjacents.index(random.choice(candidate_position.adjacents)))
         test = [ran_adjacent_position]
-        while not cancelar:
-            if cancel is not None:
-                cancel.update()
-            if ran_adjacent_position.number == 1 and ran_adjacent_position.color == candidate_position.color:
-                break
-            elif len(candidate_position.adjacents) != 0:
-                ran_adjacent_position = candidate_position.adjacents.pop(
-                    candidate_position.adjacents.index(random.choice(candidate_position.adjacents)))
-                test.append(ran_adjacent_position)
-            else:
-                break
+        while not (ran_adjacent_position.number == 1 and ran_adjacent_position.color == candidate_position.color
+                   ) and len(candidate_position.adjacents) != 0:
+            ran_adjacent_position = candidate_position.adjacents.pop(candidate_position.adjacents.index(
+                random.choice(candidate_position.adjacents)))
+            test.append(ran_adjacent_position)
         candidate_position.adjacents = candidate_position.adjacents + test
         if candidate_position not in self.temporal_way:
             self.temporal_way.append(candidate_position)
@@ -312,9 +296,6 @@ class Checker:
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         """
-        global cancel, cancelar
-        if cancel is not None:
-            cancel.update()
         dist = self.t.get_distance(self.t.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2:
@@ -334,9 +315,9 @@ class Checker:
                                                (adj.number == 0 and len(adj.way) == self.number))) or
                        (dist == self.number - 1 and adj.number == self.number)):
                         aux = [a.name for a in rama.iter_ancestors()]
-                        if adj not in aux and not cancelar:  # para que no vuelva sobre si mismo.
+                        if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check(adj, rama.add_child(name=adj), root)
-        if self.finish or cancelar:
+        if self.finish:
             return
         elif father.number == self.number and dist == self.number:
             aux = [a.name for a in rama.iter_ancestors() if type(a.name) is Position]
@@ -391,9 +372,6 @@ class Checker:
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         """
-        global cancel, cancelar
-        if cancel is not None:
-            cancel.update()
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2 and root.color == adj.color:
@@ -405,9 +383,9 @@ class Checker:
                                                     (adj.number == 0 and len(adj.way) == self.number)))\
                             or (dist == self.number - 1 and adj.number == self.number):
                         aux = [a.name for a in rama.iter_ancestors()]
-                        if adj not in aux and not cancelar:  # para que no vuelva sobre si mismo.
+                        if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.case_a_aux(adj, rama.add_child(name=adj), root)
-        if self.finish or cancelar:
+        if self.finish:
             rama.detach()
             return
         elif father.number == self.number and dist == self.number and \
@@ -429,9 +407,6 @@ class Checker:
             ncasec (Position): posicion del caso c (auxiliar).
 
         """
-        global cancel, cancelar
-        if cancel is not None:
-            cancel.update()
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
             if father.euclides(ncasec.pair) <= ncasec.number - dist:
@@ -440,9 +415,9 @@ class Checker:
                                                   (adj.number == 0 and adj in ncasec.way)))\
                         or (dist == ncasec.number - 1 and adj.number == ncasec.number):
                     aux = [a.name for a in rama.iter_ancestors()]
-                    if adj not in aux and not cancelar:  # para que no vuelva sobre si mismo.
+                    if adj not in aux:  # para que no vuelva sobre si mismo.
                         self.case_c_aux(adj, rama.add_child(name=adj), root, ncasec)
-        if self.finish or cancelar:
+        if self.finish:
             rama.detach()
             return
         elif dist == ncasec.number and father is ncasec.pair:
@@ -470,19 +445,11 @@ def generate(puzz, gen):
         gen (Generator): Generador a usar.
 
     """
-    global status, cancel, cancelar
     print('generando puzzle ( velocidad', gen.sspeed, ')')
-    if status is not None:
-        status.set("Estado: Generando puzzle (velocidad " + gen.sspeed + ') ...')
-        cancel.update()
-    while len(puzz.candidate) > 0 and not cancelar:  # generamos el puzzle mientras haya candidatos.
-        if cancel is not None:
-            cancel.update()
+    while len(puzz.candidate) > 0:  # generamos el puzzle mientras haya candidatos.
         candidate = gen.step_one()
         adjacent, candidate = gen.step_two(candidate)
-        while adjacent and not cancelar:
-            if cancel is not None:
-                cancel.update()
+        while adjacent:
             puzz.candidate.remove(adjacent)
             if len(gen.temporal_way) < gen.max_number:
                 adjacent, candidate = gen.step_two(adjacent)
@@ -522,15 +489,11 @@ def check(puzz, chec):
         chec (Checker): Comprobador a usar.
 
     """
-    global cancel, types, cancelar
     aux = 0
     for pos1 in puzz.final:
         aux += 1
         print('progreso:', aux, 'de', len(puzz.final), ' '*40, end='\r')
-        if types is not None:
-            types.set("Progreso: " + str(aux) + ' de ' + str(len(puzz.final)))
-            cancel.update()
-        if pos1.number == chec.number and pos1.ini and pos1.new and not cancelar:
+        if pos1.number == chec.number and pos1.ini and pos1.new:
             # print('generando arbol')
             chec.three_check(pos1, chec.t.add_child(name=pos1), pos1)
             chec.casee = 0
@@ -545,11 +508,8 @@ def found_error(puzz, i):
             puzz (Puzzle): Puzzle a comprobar.
             i (int): numero analizado.
     """
-    global candi, cancel, errores, start
     auxf = puzz.final  # salvar final.
     print('\nnumero de errores:', int(len(puzz.candidate)/i))
-    if errores is not None:
-        errores.set("Número de errores: " + str(int(len(puzz.candidate)/i)))
     for pos1 in puzz.final:  # volver a construir la lista de candidatos.
         # aquellos 1's que tengan 1's adyacentes.
         if pos1.number == 1 and pos1 not in puzz.candidate:
@@ -575,10 +535,6 @@ def found_error(puzz, i):
     print('finales: ', len(maxf), ' / ', 'candidatos: ', maxe)
     mid = timer()
     print('='*40, seconds_to_str(mid - start))
-    if candi is not None:
-        candi.set("Finales / Candidatos: " + str(len(maxf)) + ' / ' + str(maxe))
-        totaltime.set("Tiempo total: " + seconds_to_str(mid - start))
-        cancel.update()
 
 
 def read_csv(fname):
@@ -695,7 +651,7 @@ def seconds_to_str(t):
 
 
 def main(arg1, arg2, arg3, arg4, arg5):
-    global num, cancel, status, cancelar, totaltime, start
+    global start
     if arg1.rsplit('/')[-1].rsplit('.')[1] == 'csv':
         p = read_csv(os.path.abspath(os.path.dirname(arg1))+'/'+arg1.rsplit('/')[-1])
     else:
@@ -704,17 +660,11 @@ def main(arg1, arg2, arg3, arg4, arg5):
     it2 = int(arg2)  # numero maximo.
     it1 = it = int(arg3)  # numero de iteraciones por numero.
     while it2 > 1:
-        while it > 0 and not cancelar:
+        while it > 0:
             print('numero:', it2, '- iteracion:', it1 + 1 - it, 'de', it1)
-            if num is not None:
-                num.set("Número / Iteración: " + str(it2) + ' / ' + str(it1 + 1 - it) + ' de ' + str(it1))
-                cancel.update()
             g = Generator(p, it2, int(arg4), int(arg5))  # creamos el generador.
             generate(p, g)  # generamos el puzzle.
             print('buscando errores')
-            if status is not None:
-                status.set("Estado: Buscando errores ...")
-                cancel.update()
             c = Checker(p, it2)
             check(p, c)
             found_error(p, it2)
@@ -734,12 +684,22 @@ def main(arg1, arg2, arg3, arg4, arg5):
         write_json(p)
     end = timer()
     print('='*40, seconds_to_str(end - start))
-    if totaltime is not None:
-        totaltime.set("Tiempo total: " + seconds_to_str(end - start))
     start = timer()
 
 if __name__ == '__main__':
-    if len(sys.argv) != 6:
-        sys.stderr('Not enough params.')
-        sys.exit(1)
-    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
+    os.environ['COLUMNS'] = str(shutil.get_terminal_size().columns)  # para que el ancho de la consola lo pille bien.
+    parser = argparse.ArgumentParser(description='Generate puzzles for pypbp game.')
+    parser.add_argument('file', action='store', type=str, metavar='file',
+                        help='CSV or JSON file from which to generate the puzzle')
+    parser.add_argument('max_number', action='store', type=int, metavar='max_number', default=2, nargs='?',
+                        help='maximun number to be present in the generated puzzle (default: 2)')
+    parser.add_argument('iterations', action='store', type=int, metavar='iterations', default=1, nargs='?',
+                        help='number of iterations per number (default: 1)')
+    parser.add_argument('speed', action='store', type=int, metavar='speed', choices=range(1, 6), default=1, nargs='?',
+                        help='speed used to generate the puzzle (1:slowest; 2:slow; 3:normal; 4:fast; 5:fastest) '
+                             '(default: 1)')
+    parser.add_argument('speed_number', action='store', type=int, metavar='speed_number', default=2, nargs='?',
+                        help='number till argument speed is applied (default: 2)')
+    args = parser.parse_args()  # (interface=True, iterations=1, max_number=2, speed=1, speed_number=2)
+    main(vars(args).get('file'), vars(args).get('max_number'), vars(args).get('iterations'),
+         vars(args).get('speed'), vars(args).get('speed_number'))
