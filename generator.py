@@ -27,8 +27,6 @@ from ete3 import Tree
 from timeit import default_timer as timer
 from datetime import timedelta
 
-maxf = []
-maxe = None
 start = timer()
 
 
@@ -182,31 +180,31 @@ class Generator:
         self.puzzle = puzzle
         self.temporal_way = []
         self.max_number = max_number
-        s = 2
-        if nspeed >= 2:
-            s = nspeed
-        if max_number <= s:
-            self.speed = max_number
-            self.sspeed = 'muy lenta'
-        else:
-            if speed == 1:
-                self.speed = max_number
-                self.sspeed = 'muy lenta'
-            elif speed == 2:
-                self.speed = max_number - (max_number / 3)
-                self.sspeed = 'lenta'
-            elif speed == 3:
-                self.speed = max_number / 2
-                self.sspeed = 'normal'
-            elif speed == 4:
-                self.speed = max_number / 3
-                self.sspeed = 'rapida'
-            elif speed == 5:
+        self.nspeed = nspeed
+        self.speed = speed
+        self.sspeed = ''
+        self.set_speed()
+
+    def set_speed(self):
+        """Pone la velocidad de la generación del Puzzle.
+
+        """
+        ws = ['muy lenta', 'lenta', 'normal', 'rapida', 'muy rapida']
+        if self.max_number <= self.nspeed:
+            self.speed = self.max_number
+            self.sspeed = ws[0]
+        elif self.sspeed == '':
+            self.sspeed = ws[self.speed-1]
+            if self.speed == 1:
+                self.speed = self.max_number
+            elif self.speed == 2:
+                self.speed = self.max_number - (self.max_number / 3)
+            elif self.speed == 3:
+                self.speed = self.max_number / 2
+            elif self.speed == 4:
+                self.speed = self.max_number / 3
+            elif self.speed == 5:
                 self.speed = 0
-                self.sspeed = 'muy rapida'
-            else:
-                self.speed = max_number
-                self.sspeed = 'muy lenta'
 
     def step_one(self):
         """Elegir posición aleatoria de la tabla de candidatos y eliminarlo de ella.
@@ -247,6 +245,46 @@ class Generator:
             ran_adjacent_position.number += 1
             return ran_adjacent_position, candidate_position
 
+    def generate(self):
+        """Genera el puzzle.
+
+        """
+        self.set_speed()
+        print('generando puzzle ( velocidad', self.sspeed, ')')
+        while len(self.puzzle.candidate) > 0:  # generamos el puzzle mientras haya candidatos.
+            candidate = self.step_one()
+            adjacent, candidate = self.step_two(candidate)
+            while adjacent:
+                self.puzzle.candidate.remove(adjacent)
+                if len(self.temporal_way) < self.max_number:
+                    adjacent, candidate = self.step_two(adjacent)
+                else:
+                    break
+            self.temporal_way[0].ini = True
+            for pos in self.temporal_way:
+                if pos is self.temporal_way[0]:
+                    pos.pair = self.temporal_way[-1]
+                    pos.number = len(self.temporal_way)
+                elif pos is self.temporal_way[-1]:
+                    pos.pair = self.temporal_way[0]
+                    pos.number = len(self.temporal_way)
+                else:
+                    pos.number = 0
+                pos.way = self.temporal_way.copy()
+                self.puzzle.final.append(pos)
+            self.temporal_way.clear()
+        for pos1 in self.puzzle.final:  # reseteamos los menores que el numero generado.
+            if pos1.number < self.max_number and pos1 not in self.puzzle.candidate and pos1.number != 1 and\
+                                    self.max_number > len(pos1.way) > 0:
+                for w in pos1.way:
+                    w.clear()
+            elif pos1.number == self.max_number:  # opciones de velocidad.
+                for pa in self.puzzle.final:
+                    if pa.euclides(pos1) <= self.max_number - self.speed and pa is not pos1 and pa is not pos1.pair and\
+                                    pa.number == pos1.number and pa.color == pos1.color:
+                        for w in pa.way:
+                            w.clear()
+
 
 class Checker:
     """Clase para comprobar la validez del puzzle.
@@ -258,20 +296,21 @@ class Checker:
         number (int): numero a comprobar.
 
     """
-    def __init__(self, puzzle, checkn):
+    def __init__(self, puzzle):
         """Clase para generar el puzzle a partir de un Puzzle.
 
         Args:
             puzzle (Puzzle): Puzzle sobre el que comprobar la validez.
-            checkn (int): numero a comprobar.
 
         """
         self.puzzle = puzzle
         self.t = Tree(';', format=1)
         self.taux = Tree(';', format=1)
-        self.number = checkn
+        self.number = 0
         self.finish = False
         self.casee = 0
+        self.maxf = []
+        self.maxe = None
 
     def three_check(self, father, rama, root):
         """Posibles casos:
@@ -436,105 +475,54 @@ class Checker:
                 self.finish = True
         rama.detach()
 
+    def check(self):
+        """Mira si el puzzle esta bien generado o no.
 
-def generate(puzz, gen):
-    """Genera el puzzle.
+        """
+        aux = 0
+        for pos1 in self.puzzle.final:
+            aux += 1
+            print('progreso:', aux, 'de', len(self.puzzle.final), ' '*40, end='\r')
+            if pos1.number == self.number and pos1.ini and pos1.new:
+                # print('generando arbol')
+                self.three_check(pos1, self.t.add_child(name=pos1), pos1)
+                self.casee = 0
+                self.t = Tree(';', format=1)
+                self.finish = False
+        self.found_error()
 
-    Args:
-        puzz (Puzzle): Puzzle a comprobar.
-        gen (Generator): Generador a usar.
+    def found_error(self):
+        """Funcion para reconstruir la lista de candidatos a partir de los errores.
 
-    """
-    print('generando puzzle ( velocidad', gen.sspeed, ')')
-    while len(puzz.candidate) > 0:  # generamos el puzzle mientras haya candidatos.
-        candidate = gen.step_one()
-        adjacent, candidate = gen.step_two(candidate)
-        while adjacent:
-            puzz.candidate.remove(adjacent)
-            if len(gen.temporal_way) < gen.max_number:
-                adjacent, candidate = gen.step_two(adjacent)
-            else:
-                break
-        gen.temporal_way[0].ini = True
-        for pos in gen.temporal_way:
-            if pos is gen.temporal_way[0]:
-                pos.pair = gen.temporal_way[-1]
-                pos.number = len(gen.temporal_way)
-            elif pos is gen.temporal_way[-1]:
-                pos.pair = gen.temporal_way[0]
-                pos.number = len(gen.temporal_way)
-            else:
-                pos.number = 0
-            pos.way = gen.temporal_way.copy()
-            puzz.final.append(pos)
-        gen.temporal_way.clear()
-    for pos1 in puzz.final:  # reseteamos los menores que el numero generado ya que no hace falta ver sus errores.
-        if pos1.number < gen.max_number and pos1 not in puzz.candidate and pos1.number != 1 and gen.max_number > len(
-                pos1.way) > 0:
-            for w in pos1.way:
-                w.clear()
-        elif pos1.number == gen.max_number:  # opciones de velocidad.
-            for pa in puzz.final:
-                if pa.euclides(pos1) <= gen.max_number - gen.speed and pa is not pos1 and pa is not pos1.pair and \
-                                pa.number == pos1.number and pa.color == pos1.color:
-                    for w in pa.way:
+        """
+        auxf = self.puzzle.final  # salvar final.
+        print('\nnumero de errores:', int(len(self.puzzle.candidate)/self.number))
+        for pos1 in self.puzzle.final:  # volver a construir la lista de candidatos.
+            # aquellos 1's que tengan 1's adyacentes.
+            if pos1.number == 1 and pos1 not in self.puzzle.candidate:
+                for pos_ad in pos1.adjacents:
+                    if pos_ad.number == 1 and pos_ad.color == pos1.color:
+                        self.puzzle.candidate.append(pos1)
+                        break
+            # aquellos que sean menores que el numero chequeado.
+            elif pos1.number < self.number and pos1 not in self.puzzle.candidate and pos1.number != 1 and (
+                            self.number > len(pos1.way) > 0):
+                for w in pos1.way:
+                    if w is not pos1:
                         w.clear()
-
-
-def check(puzz, chec):
-    """Mira si el puzzle esta bien generado o no.
-
-    Args:
-        puzz (Puzzle): Puzzle a comprobar.
-        chec (Checker): Comprobador a usar.
-
-    """
-    aux = 0
-    for pos1 in puzz.final:
-        aux += 1
-        print('progreso:', aux, 'de', len(puzz.final), ' '*40, end='\r')
-        if pos1.number == chec.number and pos1.ini and pos1.new:
-            # print('generando arbol')
-            chec.three_check(pos1, chec.t.add_child(name=pos1), pos1)
-            chec.casee = 0
-            chec.t = Tree(';', format=1)
-            chec.finish = False
-
-
-def found_error(puzz, i):
-    """Funcion para reconstruir la lista de candidatos a partir de los errores.
-
-        Args:
-            puzz (Puzzle): Puzzle a comprobar.
-            i (int): numero analizado.
-    """
-    auxf = puzz.final  # salvar final.
-    print('\nnumero de errores:', int(len(puzz.candidate)/i))
-    for pos1 in puzz.final:  # volver a construir la lista de candidatos.
-        # aquellos 1's que tengan 1's adyacentes.
-        if pos1.number == 1 and pos1 not in puzz.candidate:
-            for pos_ad in pos1.adjacents:
-                if pos_ad.number == 1 and pos_ad.color == pos1.color:
-                    puzz.candidate.append(pos1)
-                    break
-        # aquellos que sean menores que el numero chequeado.
-        elif pos1.number < i and pos1 not in puzz.candidate and pos1.number != 1 and i > len(pos1.way) > 0:
-            for w in pos1.way:
-                if w is not pos1:
-                    w.clear()
-                    puzz.candidate.append(w)
-            pos1.clear()
-            puzz.candidate.append(pos1)
-    [puzz.final.remove(pos1) for pos1 in puzz.candidate if pos1 in puzz.final]
-    global maxe, maxf  # salvar longitud y ver si no es menor que el anterior. Si es menor restaurar final.
-    if maxe is None or maxe >= len(puzz.candidate):
-        maxe = len(puzz.candidate)
-        maxf = auxf
-    elif maxe < len(puzz.candidate):
-        puzz.final = auxf
-    print('finales: ', len(maxf), ' / ', 'candidatos: ', maxe)
-    mid = timer()
-    print('='*40, seconds_to_str(mid - start))
+                        self.puzzle.candidate.append(w)
+                pos1.clear()
+                self.puzzle.candidate.append(pos1)
+        [self.puzzle.final.remove(pos1) for pos1 in self.puzzle.candidate if pos1 in self.puzzle.final]
+        # salvar longitud y ver si no es menor que el anterior. Si es menor restaurar final.
+        if self.maxe is None or self.maxe >= len(self.puzzle.candidate):
+            self.maxe = len(self.puzzle.candidate)
+            self.maxf = auxf
+        elif self.maxe < len(self.puzzle.candidate):
+            self.puzzle.final = auxf
+        print('finales: ', len(self.maxf), ' / ', 'candidatos: ', self.maxe)
+        mid = timer()
+        print('='*40, seconds_to_str(mid - start))
 
 
 def read_csv(fname):
@@ -659,15 +647,16 @@ def main(arg1, arg2, arg3, arg4, arg5):
     p.initialice()  # inicializamos las listas candidata y final y los adyacentes.
     it2 = int(arg2)  # numero maximo.
     it1 = it = int(arg3)  # numero de iteraciones por numero.
+    g = Generator(p, it2, int(arg4), int(arg5))  # creamos el generador.
+    c = Checker(p)
     while it2 > 1:
         while it > 0:
             print('numero:', it2, '- iteracion:', it1 + 1 - it, 'de', it1)
-            g = Generator(p, it2, int(arg4), int(arg5))  # creamos el generador.
-            generate(p, g)  # generamos el puzzle.
+            g.max_number = it2
+            g.generate()  # generamos el puzzle.
             print('buscando errores')
-            c = Checker(p, it2)
-            check(p, c)
-            found_error(p, it2)
+            c.number = it2
+            c.check()
             for neu in p.final:
                 neu.new = False
             if len(p.candidate) == 0:
