@@ -5,7 +5,7 @@ A python3 script to generate puzzles for [pypbp game](https://github.com/Ealdor/
 
 Command line interface
 ----------------------
-> **generator.py [-h] file [max_number] [iterations] [speed] [speed_number]**
+> **usage: generator.py [-h] [--cores cores] file [max_number] [iterations] [speed] [speed_number]**
 
 *positional arguments:*
   
@@ -18,6 +18,7 @@ Command line interface
 *optional arguments:*
 
     -h, --help    show this help message and exit
+    --cores cores  number of cores to use (default: 1)
 
 More iterations means more complexity but can take more time to generate the puzzle (a good value is between 1 and 5). 
  There is no cap for the maximun number but if you use a number greater than 15 it can take a lot of time to  produce 
