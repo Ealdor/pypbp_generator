@@ -366,7 +366,10 @@ class Checker:
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check(adj, rama.add_child(name=adj), root, q)
+        if self.t.__len__() > 1:
+            print('gen', self.t.__len__())
         if self.finish:
+            rama.detach()
             return
         elif father.number == self.number and dist == self.number:
             aux = [a.name for a in rama.iter_ancestors() if type(a.name) is Position]
@@ -436,6 +439,8 @@ class Checker:
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.case_a_aux(adj, rama.add_child(name=adj), root, q)
+        if self.taux.__len__() > 1:
+            print('aux', self.t.__len__())
         if self.finish:
             rama.detach()
             return
@@ -469,6 +474,8 @@ class Checker:
                     aux = [a.name for a in rama.iter_ancestors()]
                     if adj not in aux:  # para que no vuelva sobre si mismo.
                         self.case_c_aux(adj, rama.add_child(name=adj), root, ncasec, q)
+        if self.taux.__len__() > 1:
+            print('aux', self.t.__len__())
         if self.finish:
             rama.detach()
             return
