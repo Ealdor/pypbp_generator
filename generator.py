@@ -21,6 +21,7 @@ import shutil
 import sys
 import os
 import random
+import time
 import math
 import json
 import multiprocessing as mp
@@ -366,8 +367,6 @@ class Checker:
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check(adj, rama.add_child(name=adj), root, q)
-        if self.t.__len__() > 1:
-            print('gen', self.t.__len__())
         if self.finish:
             rama.detach()
             return
@@ -398,14 +397,14 @@ class Checker:
                 if only == self.number:
                     self.casee += 1
                     if self.casee > 1:
-                        print('error E encontrado', root)
+                        # print('error E encontrado', root)
                         q.put(self.puzzle.final.index(root))
                         for w in root.way:
                             w.clear()
                             self.puzzle.candidate.append(w)
                         self.finish = True
                 elif caseb == self.number - 2:
-                    print('error B encontrado:', root)
+                    # print('error B encontrado:', root)
                     q.put(self.puzzle.final.index(root))
                     for w in root.way:
                             w.clear()
@@ -439,14 +438,12 @@ class Checker:
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.case_a_aux(adj, rama.add_child(name=adj), root, q)
-        if self.taux.__len__() > 1:
-            print('aux', self.t.__len__())
         if self.finish:
             rama.detach()
             return
         elif father.number == self.number and dist == self.number and \
                 father is root.pair and father.color == root.color:
-            print('error A encontrado:', root)
+            # print('error A encontrado:', root)
             for w in root.way:
                 w.clear()
                 self.puzzle.candidate.append(w)
@@ -474,8 +471,6 @@ class Checker:
                     aux = [a.name for a in rama.iter_ancestors()]
                     if adj not in aux:  # para que no vuelva sobre si mismo.
                         self.case_c_aux(adj, rama.add_child(name=adj), root, ncasec, q)
-        if self.taux.__len__() > 1:
-            print('aux', self.t.__len__())
         if self.finish:
             rama.detach()
             return
@@ -483,7 +478,7 @@ class Checker:
             aux = [a.name for a in rama.iter_ancestors() if type(a.name) is Position]
             only = sum(a in ncasec.way for a in aux)
             if not only == ncasec.number:
-                print('error C encontrado:', root)
+                # print('error C encontrado:', root)
                 if ncasec.number > root.number:
                     for w in ncasec.way:
                         w.clear()
@@ -506,18 +501,8 @@ class Checker:
         processes = []
         launched = []
         for pos1 in self.puzzle.final:
-            # aux += 1
-            # print('progreso:', aux, 'de', len(self.puzzle.final), ' '*40, end='\r')
             if pos1.number == self.number and pos1.ini and pos1.new:
-                # print('generando arbol')
-
-                # self.three_check(pos1, self.t.add_child(name=pos1), pos1, q)
-                # self.casee = 0
-                # self.t = Tree(';', format=1)
-                # self.finish = False
-
                 processes.append(mp.Process(target=self.run, args=(pos1, q, )))
-
         long = len(processes)
         while len(processes) > 0:
             alive = 0
@@ -526,17 +511,19 @@ class Checker:
                     alive += 1
                 else:
                     launched.remove(p)
-            if alive != self.cores - 1 and len(processes) > 0:
+            if (alive != self.cores - 1 or self.cores == 1) and len(processes) > 0:
                 aux += 1
                 print('progreso:', aux, 'de', long, ' '*40, end='\r')
                 uno = processes.pop()
                 launched.append(uno)
                 uno.start()
+            time.sleep(0.1)  # sleep
         while len(launched) > 0:
             for p in launched:
                 if not p.is_alive():
                     launched.remove(p)
-
+            print('progreso:', aux, 'de', long, '(procesos activos:', len(launched),  ')', ' '*40, end='\r')
+            time.sleep(0.1)  # sleep
         while not q.empty():
             test = q.get()
             for w in self.puzzle.final[test].way:
@@ -732,7 +719,7 @@ def main(arg1, arg2, arg3, arg4, arg5, arg6):
 if __name__ == '__main__':
     os.environ['COLUMNS'] = str(shutil.get_terminal_size().columns)  # para que el ancho de la consola lo pille bien.
     parser = argparse.ArgumentParser(description='Generate puzzles for pypbp game.')
-    parser.add_argument('--cores', action='store', type=int, metavar='cores',
+    parser.add_argument('--cores', action='store', type=int, metavar='cores', default=2,
                         help='number of cores to use (default: 1)')
     parser.add_argument('file', action='store', type=str, metavar='file',
                         help='CSV or JSON file from which to generate the puzzle')
