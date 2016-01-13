@@ -23,6 +23,7 @@ import os
 import random
 import math
 import json
+import multiprocessing as mp
 from ete3 import Tree
 from timeit import default_timer as timer
 from datetime import timedelta
@@ -296,14 +297,16 @@ class Checker:
         number (int): numero a comprobar.
 
     """
-    def __init__(self, puzzle):
+    def __init__(self, puzzle, cores):
         """Clase para generar el puzzle a partir de un Puzzle.
 
         Args:
             puzzle (Puzzle): Puzzle sobre el que comprobar la validez.
+            cores (int): number of cores to use.
 
         """
         self.puzzle = puzzle
+        self.cores = cores
         self.t = Tree(';', format=1)
         self.taux = Tree(';', format=1)
         self.number = 0
@@ -312,7 +315,14 @@ class Checker:
         self.maxf = []
         self.maxe = None
 
-    def three_check(self, father, rama, root):
+    def run(self, pos1, q):
+        self.casee = 0
+        self.t = Tree(';', format=1)
+        self.taux = Tree(';', format=1)
+        self.finish = False
+        self.three_check(pos1, self.t.add_child(name=pos1), pos1, q)
+
+    def three_check(self, father, rama, root, q):
         """Posibles casos:
             (a) 3   0   3  	  (b) 3---*     (c) 8---*   *---*---*---8     (d) 2---2   2
                 |       |             |             |   |                             |
@@ -339,7 +349,7 @@ class Checker:
         for adj in father.adjacents:
             if self.number == 2:
                 if dist != self.number and root.color == adj.color:
-                    self.three_check(adj, rama.add_child(name=adj), root)
+                    self.three_check(adj, rama.add_child(name=adj), root, q)
             else:
                 aux2 = False
                 for test in self.puzzle.final:  # para mejorar la velocidad.
@@ -355,7 +365,7 @@ class Checker:
                        (dist == self.number - 1 and adj.number == self.number)):
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
-                            self.three_check(adj, rama.add_child(name=adj), root)
+                            self.three_check(adj, rama.add_child(name=adj), root, q)
         if self.finish:
             return
         elif father.number == self.number and dist == self.number:
@@ -366,7 +376,7 @@ class Checker:
                 casea = sum((a.number == 0 and (len(a.way) == 0 or (len(a.way) == self.number and
                                                                     a.color == root.color))) for a in aux)
                 if casea == self.number - 2:
-                    self.case_a_aux(father.pair, self.taux.add_child(name=father.pair), root)
+                    self.case_a_aux(father.pair, self.taux.add_child(name=father.pair), root, q)
                     self.taux = Tree(';', format=1)
             elif father is root.pair:
                 only = sum(a in root.way for a in aux)
@@ -385,24 +395,26 @@ class Checker:
                 if only == self.number:
                     self.casee += 1
                     if self.casee > 1:
+                        print('error E encontrado', root)
+                        q.put(self.puzzle.final.index(root))
                         for w in root.way:
                             w.clear()
                             self.puzzle.candidate.append(w)
                         self.finish = True
-                        # print('error E encontrado', root)
                 elif caseb == self.number - 2:
-                    # print('error B encontrado:', root)
+                    print('error B encontrado:', root)
+                    q.put(self.puzzle.final.index(root))
                     for w in root.way:
-                        w.clear()
-                        self.puzzle.candidate.append(w)
+                            w.clear()
+                            self.puzzle.candidate.append(w)
                     self.finish = True
                 elif casec is not None:
                     ncaseci = [elem for elem in casec.way if elem.number != 0 and elem.ini][0]
-                    self.case_c_aux(ncaseci, self.taux.add_child(name=ncaseci), root, ncaseci)
+                    self.case_c_aux(ncaseci, self.taux.add_child(name=ncaseci), root, ncaseci, q)
                     self.taux = Tree(';', format=1)
         rama.detach()
 
-    def case_a_aux(self, father, rama, root):
+    def case_a_aux(self, father, rama, root, q):
         """Construccion de arbol auxiliar para el caso A.
 
         Args:
@@ -415,7 +427,7 @@ class Checker:
         for adj in father.adjacents:
             if self.number == 2 and root.color == adj.color:
                 if dist != self.number:
-                    self.case_a_aux(adj, rama.add_child(name=adj), root)
+                    self.case_a_aux(adj, rama.add_child(name=adj), root, q)
             else:
                 if father.euclides(root.pair) <= root.number - dist:
                     if (dist < self.number - 1 and ((adj.number == 0 and len(adj.way) == 0) or
@@ -423,20 +435,21 @@ class Checker:
                             or (dist == self.number - 1 and adj.number == self.number):
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
-                            self.case_a_aux(adj, rama.add_child(name=adj), root)
+                            self.case_a_aux(adj, rama.add_child(name=adj), root, q)
         if self.finish:
             rama.detach()
             return
         elif father.number == self.number and dist == self.number and \
                 father is root.pair and father.color == root.color:
-            # print('error A encontrado:', root)
+            print('error A encontrado:', root)
             for w in root.way:
                 w.clear()
                 self.puzzle.candidate.append(w)
+            q.put(self.puzzle.final.index(root))
             self.finish = True
         rama.detach()
 
-    def case_c_aux(self, father, rama, root, ncasec):
+    def case_c_aux(self, father, rama, root, ncasec, q):
         """Construccion de arbol auxiliar para el caso A.
 
         Args:
@@ -455,7 +468,7 @@ class Checker:
                         or (dist == ncasec.number - 1 and adj.number == ncasec.number):
                     aux = [a.name for a in rama.iter_ancestors()]
                     if adj not in aux:  # para que no vuelva sobre si mismo.
-                        self.case_c_aux(adj, rama.add_child(name=adj), root, ncasec)
+                        self.case_c_aux(adj, rama.add_child(name=adj), root, ncasec, q)
         if self.finish:
             rama.detach()
             return
@@ -463,15 +476,17 @@ class Checker:
             aux = [a.name for a in rama.iter_ancestors() if type(a.name) is Position]
             only = sum(a in ncasec.way for a in aux)
             if not only == ncasec.number:
-                # print('error C encontrado:', root)
+                print('error C encontrado:', root)
                 if ncasec.number > root.number:
-                    for w in root.way:
-                        w.clear()
-                        self.puzzle.candidate.append(w)
-                else:
                     for w in ncasec.way:
                         w.clear()
                         self.puzzle.candidate.append(w)
+                    q.put(self.puzzle.final.index(root))
+                else:
+                    for w in root.way:
+                        w.clear()
+                    self.puzzle.candidate.append(w)
+                    q.put(self.puzzle.final.index(ncasec))
                 self.finish = True
         rama.detach()
 
@@ -479,16 +494,48 @@ class Checker:
         """Mira si el puzzle esta bien generado o no.
 
         """
+        q = mp.Queue()
         aux = 0
+        processes = []
+        launched = []
         for pos1 in self.puzzle.final:
-            aux += 1
-            print('progreso:', aux, 'de', len(self.puzzle.final), ' '*40, end='\r')
+            # aux += 1
+            # print('progreso:', aux, 'de', len(self.puzzle.final), ' '*40, end='\r')
             if pos1.number == self.number and pos1.ini and pos1.new:
                 # print('generando arbol')
-                self.three_check(pos1, self.t.add_child(name=pos1), pos1)
-                self.casee = 0
-                self.t = Tree(';', format=1)
-                self.finish = False
+
+                # self.three_check(pos1, self.t.add_child(name=pos1), pos1, q)
+                # self.casee = 0
+                # self.t = Tree(';', format=1)
+                # self.finish = False
+
+                processes.append(mp.Process(target=self.run, args=(pos1, q, )))
+
+        long = len(processes)
+        while len(processes) > 0:
+            alive = 0
+            for p in launched:
+                if p.is_alive():
+                    alive += 1
+                else:
+                    launched.remove(p)
+            if alive != self.cores - 1 and len(processes) > 0:
+                aux += 1
+                print('progreso:', aux, 'de', long, ' '*40, end='\r')
+                uno = processes.pop()
+                launched.append(uno)
+                uno.start()
+        while len(launched) > 0:
+            for p in launched:
+                if not p.is_alive():
+                    launched.remove(p)
+
+        while not q.empty():
+            test = q.get()
+            for w in self.puzzle.final[test].way:
+                w.clear()
+                self.puzzle.candidate.append(w)
+
         self.found_error()
 
     def found_error(self):
@@ -638,7 +685,7 @@ def seconds_to_str(t):
     return str(timedelta(seconds=t))
 
 
-def main(arg1, arg2, arg3, arg4, arg5):
+def main(arg1, arg2, arg3, arg4, arg5, arg6):
     global start
     if arg1.rsplit('/')[-1].rsplit('.')[1] == 'csv':
         p = read_csv(os.path.abspath(os.path.dirname(arg1))+'/'+arg1.rsplit('/')[-1])
@@ -648,7 +695,7 @@ def main(arg1, arg2, arg3, arg4, arg5):
     it2 = int(arg2)  # numero maximo.
     it1 = it = int(arg3)  # numero de iteraciones por numero.
     g = Generator(p, it2, int(arg4), int(arg5))  # creamos el generador.
-    c = Checker(p)
+    c = Checker(p, arg6)
     while it2 > 1:
         while it > 0:
             print('numero:', it2, '- iteracion:', it1 + 1 - it, 'de', it1)
@@ -678,6 +725,8 @@ def main(arg1, arg2, arg3, arg4, arg5):
 if __name__ == '__main__':
     os.environ['COLUMNS'] = str(shutil.get_terminal_size().columns)  # para que el ancho de la consola lo pille bien.
     parser = argparse.ArgumentParser(description='Generate puzzles for pypbp game.')
+    parser.add_argument('--cores', action='store', type=int, metavar='cores',
+                        help='number of cores to use (default: 1)')
     parser.add_argument('file', action='store', type=str, metavar='file',
                         help='CSV or JSON file from which to generate the puzzle')
     parser.add_argument('max_number', action='store', type=int, metavar='max_number', default=2, nargs='?',
@@ -691,4 +740,4 @@ if __name__ == '__main__':
                         help='number till argument speed is applied (default: 2)')
     args = parser.parse_args()  # (interface=True, iterations=1, max_number=2, speed=1, speed_number=2)
     main(vars(args).get('file'), vars(args).get('max_number'), vars(args).get('iterations'),
-         vars(args).get('speed'), vars(args).get('speed_number'))
+         vars(args).get('speed'), vars(args).get('speed_number'), vars(args).get('cores'))
