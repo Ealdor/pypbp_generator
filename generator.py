@@ -344,6 +344,15 @@ class Checker:
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         """
+        a = []
+        while not self.q.empty():
+            test = self.q.get()
+            a.append(test)
+            for w in self.puzzle.final[test].way:
+                w.clear()
+        for ele in a:
+            self.q.put(ele)
+
         dist = self.t.get_distance(self.t.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2:
