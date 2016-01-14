@@ -12,7 +12,7 @@ Command line interface
     file          CSV or JSON file from which to generate the puzzle
     max_number    maximun number to be present in the generated puzzle (default: 2)
     iterations    number of iterations per number (default: 1)
-    speed         speed used to generate the puzzle (1:slowest; 2:slow; 3:normal; 4:fast; 5:fastest) (default: 1)
+    speed         speed used to generate the puzzle (1:slowest;2:slow;3:normal;4:fast;5:fastest) (default: 3)
     speed_number  number till argument speed is applied (default: 2)
 
 *optional arguments:*
