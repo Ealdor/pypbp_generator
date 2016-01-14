@@ -25,13 +25,12 @@ import time
 import math
 import json
 import multiprocessing as mp
-from multiprocessing import Manager
 from ete3 import Tree
 from timeit import default_timer as timer
 from datetime import timedelta
 
 start = timer()
-manager = Manager()
+manager = mp.Manager()
 mylist = manager.list()
 
 
@@ -318,6 +317,7 @@ class Checker:
         self.casee = 0
         self.maxf = []
         self.maxe = None
+        self.leng = 0
 
     def run(self, pos1):
         self.three_check(pos1, self.t.add_child(name=pos1), pos1)
@@ -345,9 +345,11 @@ class Checker:
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         """
-        for error in mylist:
-            for w in self.puzzle.final[error].way:
-                w.clear()
+        if len(mylist) != self.leng:
+            for error in mylist:
+                for w in self.puzzle.final[error].way:
+                    w.clear()
+            self.leng = len(mylist)
         dist = self.t.get_distance(self.t.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2:
@@ -421,9 +423,11 @@ class Checker:
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         """
-        for error in mylist:
-            for w in self.puzzle.final[error].way:
-                w.clear()
+        if len(mylist) != self.leng:
+            for error in mylist:
+                for w in self.puzzle.final[error].way:
+                    w.clear()
+            self.leng = len(mylist)
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2 and root.color == adj.color:
@@ -457,6 +461,11 @@ class Checker:
             ncasec (Position): posicion del caso c (auxiliar).
 
         """
+        if len(mylist) != self.leng:
+            for error in mylist:
+                for w in self.puzzle.final[error].way:
+                    w.clear()
+            self.leng = len(mylist)
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
             if father.euclides(ncasec.pair) <= ncasec.number - dist:
@@ -506,13 +515,10 @@ class Checker:
                 uno = processes.pop()
                 launched.append(uno)
                 uno.start()
-            time.sleep(0.1)  # sleep
-        while len(launched) > 0:
-            for p in launched:
-                if not p.is_alive():
-                    launched.remove(p)
-            print('progreso:', aux, 'de', long, '( procesos activos', len(launched),  ')', ' '*40, end='\r')
-            time.sleep(0.1)  # sleep
+            time.sleep(0.1)
+        print('progreso:', aux, 'de', long, '( procesos activos', len(launched),  ')', ' '*40, end='\r')
+        for p in launched:
+            p.join()
         while len(mylist) > 0:
             error = mylist.pop()
             for w in self.puzzle.final[error].way:
