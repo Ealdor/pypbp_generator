@@ -25,11 +25,14 @@ import time
 import math
 import json
 import multiprocessing as mp
+from multiprocessing import Manager
 from ete3 import Tree
 from timeit import default_timer as timer
 from datetime import timedelta
 
 start = timer()
+manager = Manager()
+mylist = manager.list()
 
 
 class Position:
@@ -315,10 +318,8 @@ class Checker:
         self.casee = 0
         self.maxf = []
         self.maxe = None
-        self.q = None
 
-    def run(self, pos1, q):
-        self.q = q
+    def run(self, pos1):
         self.three_check(pos1, self.t.add_child(name=pos1), pos1)
 
     def three_check(self, father, rama, root):
@@ -344,15 +345,9 @@ class Checker:
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         """
-        a = []
-        while not self.q.empty():
-            test = self.q.get()
-            a.append(test)
-            for w in self.puzzle.final[test].way:
+        for error in mylist:
+            for w in self.puzzle.final[error].way:
                 w.clear()
-        for ele in a:
-            self.q.put(ele)
-
         dist = self.t.get_distance(self.t.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2:
@@ -374,8 +369,6 @@ class Checker:
                         aux = [a.name for a in rama.iter_ancestors()]
                         if adj not in aux:  # para que no vuelva sobre si mismo.
                             self.three_check(adj, rama.add_child(name=adj), root)
-        if self.t.__len__() > 1:
-            print(self.t.__len__())
         if self.finish:
             rama.detach()
             return
@@ -407,11 +400,11 @@ class Checker:
                     self.casee += 1
                     if self.casee > 1:
                         # print('error E encontrado', root)
-                        self.q.put(self.puzzle.final.index(root))
+                        mylist.append(self.puzzle.final.index(root))
                         self.finish = True
                 elif caseb == self.number - 2:
                     # print('error B encontrado:', root)
-                    self.q.put(self.puzzle.final.index(root))
+                    mylist.append(self.puzzle.final.index(root))
                     self.finish = True
                 elif casec is not None:
                     ncaseci = [elem for elem in casec.way if elem.number != 0 and elem.ini][0]
@@ -428,6 +421,9 @@ class Checker:
             root (Position): posicion desde la que se comienza a generar el arbol auxiliar.
 
         """
+        for error in mylist:
+            for w in self.puzzle.final[error].way:
+                w.clear()
         dist = self.taux.get_distance(self.taux.get_tree_root(), rama)
         for adj in father.adjacents:
             if self.number == 2 and root.color == adj.color:
@@ -447,7 +443,7 @@ class Checker:
         elif father.number == self.number and dist == self.number and \
                 father is root.pair and father.color == root.color:
             # print('error A encontrado:', root)
-            self.q.put(self.puzzle.final.index(root))
+            mylist.append(self.puzzle.final.index(root))
             self.finish = True
         rama.detach()
 
@@ -480,9 +476,9 @@ class Checker:
             if not only == ncasec.number:
                 # print('error C encontrado:', root)
                 if ncasec.number > root.number:
-                    self.q.put(self.puzzle.final.index(root))
+                    mylist.append(self.puzzle.final.index(root))
                 else:
-                    self.q.put(self.puzzle.final.index(ncasec))
+                    mylist.append(self.puzzle.final.index(ncasec))
                 self.finish = True
         rama.detach()
 
@@ -490,13 +486,12 @@ class Checker:
         """Mira si el puzzle esta bien generado o no.
 
         """
-        q = mp.Queue()
         aux = 0
         processes = []
         launched = []
         for pos1 in self.puzzle.final:
             if pos1.number == self.number and pos1.ini and pos1.new:
-                processes.append(mp.Process(target=self.run, args=(pos1, q, )))
+                processes.append(mp.Process(target=self.run, args=(pos1, )))
         long = len(processes)
         while len(processes) > 0:
             alive = 0
@@ -518,9 +513,9 @@ class Checker:
                     launched.remove(p)
             print('progreso:', aux, 'de', long, '( procesos activos', len(launched),  ')', ' '*40, end='\r')
             time.sleep(0.1)  # sleep
-        while not q.empty():
-            test = q.get()
-            for w in self.puzzle.final[test].way:
+        while len(mylist) > 0:
+            error = mylist.pop()
+            for w in self.puzzle.final[error].way:
                 w.clear()
                 self.puzzle.candidate.append(w)
         self.found_error()
