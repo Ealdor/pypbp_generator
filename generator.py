@@ -169,6 +169,8 @@ class Generator:
         temporal_way (list): Lista temporal para guardar el camino.
         max_number (int): Numero maximo que tendra el Puzzle.
         speed (int): Nivel de velocidad (0:muy lento; 1:lento; 2:normal; 3:rapido; 4:muy rapido).
+        nspeed (int): Numero hasta el que se le aplicara la velocidad (speed).
+        sspeed (string): Cadena de la velocidad.
 
     """
     def __init__(self, puzzle, max_number, speed=0, nspeed=2):
@@ -298,6 +300,13 @@ class Checker:
         t (TreeNode): arbol para generar caminos a partir de un nodo.
         taux (TreeNode): arbol auxiliar para la comprobacion de la validez de un camino.
         number (int): numero a comprobar.
+        finish (boolean): indica si ha encontrado algun error.
+        casee (int): guardar el numero de positivos para el case E.
+        maxf (list): guarda el final anterior por si hay que restaurarlo.
+        maxe (int): longitud de la lista de candidatos valida.
+        leng (int): longitud de la lista Manager.
+        nocheck (Position): Posicion para no comprobar una vez se ha visto que no hay error de caso A.
+        cores (int): number of cores to use.
 
     """
     def __init__(self, puzzle, cores):
@@ -318,6 +327,7 @@ class Checker:
         self.maxf = []
         self.maxe = None
         self.leng = 0
+        self.nocheck = []
 
     def run(self, pos1):
         self.three_check(pos1, self.t.add_child(name=pos1), pos1)
@@ -358,7 +368,8 @@ class Checker:
             else:
                 aux2 = False
                 for test in self.puzzle.final:  # para mejorar la velocidad.
-                    if test is not root and test.number == self.number and test.euclides(father) <= root.number - dist:
+                    if test is not root and test.number == self.number and test.euclides(father) <= root.number - dist\
+                            and test not in self.nocheck:
                         aux2 = True
                         break
                 if aux2:
@@ -383,6 +394,8 @@ class Checker:
                                                                     a.color == root.color))) for a in aux)
                 if casea == self.number - 2:
                     self.case_a_aux(father.pair, self.taux.add_child(name=father.pair), root)
+                    if not self.finish:
+                        self.nocheck.append(root)
                     self.taux = Tree(';', format=1)
             elif father is root.pair:
                 only = sum(a in root.way for a in aux)
