@@ -58,7 +58,7 @@ class Position:
             number (int): numero del cuadrado.
 
         """
-        self.coordinate = (posy, posx)
+        self.coordinate = (posy, posx)  # columna, fila
         self.color = color
         self.way = []
         self.number = number
@@ -113,7 +113,7 @@ class Puzzle:
             initial (list): lista de Posiciones iniciales leida del csv.
 
         """
-        self.size = size
+        self.size = size  # alto, ancho
         self.initial = initial
         self.candidate = []
         self.final = []
@@ -125,12 +125,15 @@ class Puzzle:
         """
         print('inicializando puzzle', end='\r')
         for pos1 in self.initial:
-            for pos2 in self.initial:  # añadimos las Posiciones adyacentes a las Posiciones del Puzzle.
-                if pos2.coordinate in [(pos1.coordinate[0] + 1, pos1.coordinate[1]),
-                                       (pos1.coordinate[0] - 1, pos1.coordinate[1]),
-                                       (pos1.coordinate[0], pos1.coordinate[1] + 1),
-                                       (pos1.coordinate[0], pos1.coordinate[1] - 1)]:
-                    pos1.adjacents.append(pos2)
+            index = self.initial.index(pos1)
+            if pos1.coordinate[0] != 0:
+                pos1.adjacents.append(self.initial[index-1])
+            if pos1.coordinate[0] != self.size[1] - 1:
+                pos1.adjacents.append(self.initial[index+1])
+            if pos1.coordinate[1] != 0:
+                pos1.adjacents.append(self.initial[index-self.size[1]])
+            if pos1.coordinate[1] != self.size[0] - 1:
+                pos1.adjacents.append(self.initial[index+self.size[1]])
             if pos1.number == 1:
                 for pos_ad in pos1.adjacents:
                     if pos1 not in self.final:
